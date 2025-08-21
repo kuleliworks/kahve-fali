@@ -3,7 +3,7 @@ import { decodeId } from "@/lib/id";
 import { buildFortune } from "@/lib/fortune";
 import ShareButtons from "@/components/ShareButtons";
 
-export const dynamic = "force-dynamic"; // ID'ye göre SSR
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   return {
     title: `${name} için Fal Sonucu`,
     description: "Sanal kahve falı sonucu.",
-    robots: { index: false, follow: true }, // NOINDEX
+    robots: { index: false, follow: true },
   };
 }
 
@@ -27,7 +27,7 @@ export default async function Page({ params }: { params: { id: string } }) {
       <section className="mx-auto max-w-3xl px-4 py-12">
         <div className="card p-8">
           <h1 className="text-2xl font-bold">Fal Sonucun</h1>
-          <p className="mt-2 text-neutral-600">Fal yorumunda beklenmedik bir durum oldu. Lütfen tekrar deneyin.</p>
+        <p className="mt-2 text-neutral-600">Fal yorumunda beklenmedik bir durum oldu. Lütfen tekrar deneyin.</p>
         </div>
       </section>
     );
@@ -38,7 +38,6 @@ export default async function Page({ params }: { params: { id: string } }) {
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-12">
-      {/* Başlık kartı */}
       <article className="overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-neutral-200">
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -58,26 +57,20 @@ export default async function Page({ params }: { params: { id: string } }) {
             Yaş: {payload.a} • {payload.g === "kadin" ? "Kadın" : payload.g === "erkek" ? "Erkek" : "Belirtmedi"}
           </div>
 
-          {/* Üst paylaş */}
           <div className="mt-6">
             <ShareButtons id={params.id} title={`Fal Sonucu – ${name}`} />
           </div>
         </div>
       </article>
 
-      {/* İçerik */}
       <div className="mt-10">
-        <div className="
-          prose-article
-          prose-h2:mt-8 prose-p:my-5
-        ">
+        <div className="prose-article prose-h2:mt-8 prose-p:my-5">
           {paragraphs.map((p, i) => (
             <p key={i}>{p}</p>
           ))}
         </div>
       </div>
 
-      {/* Alt paylaş */}
       <div className="mt-10">
         <ShareButtons id={params.id} title={`Fal Sonucu – ${name}`} />
       </div>
