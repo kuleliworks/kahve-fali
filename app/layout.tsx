@@ -1,7 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { SITE } from "@/lib/seo";
-
+import Nav from "@/components/Nav";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
@@ -62,20 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSite) }} />
       </head>
       <body>
-        <header className="border-b bg-white/70 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-            <a href="/" className="flex items-center gap-2">
-              <img src="/resim/sanal-kahve-fali-x2.png" alt="Logo" width={130} height={40} style={{ height: 40 }} />
-            </a>
-            <nav className="hidden items-center gap-6 text-sm text-neutral-700 sm:flex">
-              <a href="/" className="hover:text-neutral-900">Ana Sayfa</a>
-              <a href="/blog" className="hover:text-neutral-900">Blog</a>
-              <a href="/hakkimizda" className="hover:text-neutral-900">Hakkımızda</a>
-              <a href="/iletisim" className="hover:text-neutral-900">İletişim</a>
-              <a href="/#form" className="btn btn-primary">Fal Gönder</a>
-            </nav>
-          </div>
-        </header>
+<Nav />
         <main>{children}</main>
       </body>
     </html>
