@@ -25,7 +25,7 @@ async function filesToBase64(files: File[] = []): Promise<string[]> {
 }
 
 export default function StepForm() {
-  const [step, setStep] = useState(0); // 0: ad+foto, 1: cinsiyet, 2: yaş
+  const [step, setStep] = useState(0);
   const [data, setData] = useState<StepData>({});
   const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export default function StepForm() {
 
   const onFiles = useCallback((files: FileList | null) => {
     if (!files) return;
-    const list = Array.from(files).slice(0, 3); // max 3 foto
+    const list = Array.from(files).slice(0, 3);
     setData((d) => ({ ...d, photos: list }));
   }, []);
 
@@ -69,8 +69,7 @@ export default function StepForm() {
         router.push(`/fal/${json.id}`);
         return;
       }
-      // API henüz eklenmediğinde burası çalışır:
-      throw new Error(json?.error || "Fal servisi henüz hazır değil (bir sonraki adımda eklenecek).");
+      throw new Error(json?.error || "Fal servisi henüz hazır değil.");
     } catch (e: any) {
       setError(e?.message || "Fal oluşturulurken bir hata oluştu.");
     } finally {
@@ -79,7 +78,15 @@ export default function StepForm() {
   }, [data, router]);
 
   return (
-    <div className="card p-6 md:p-8">
+    <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-md md:p-8">
+      {/* Başlık */}
+      <div className="mb-6 text-center">
+        <div className="text-xl font-semibold">Falını Gönder</div>
+        <div className="mt-1 text-sm text-neutral-500">
+          Adını yaz, kahve fincanı fotoğraflarını yükle ve adımları tamamla.
+        </div>
+      </div>
+
       {/* Step göstergesi */}
       <div className="mb-6 flex items-center justify-center gap-2">
         {[0, 1, 2].map((i) => (
@@ -90,28 +97,36 @@ export default function StepForm() {
       {/* STEPS */}
       <>
         {step === 0 && (
-          <div className="space-y-4">
-            <div className="text-lg font-semibold">Adın ve Fotoğrafların</div>
+          <div className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <input
                 className="input"
-                placeholder="Adın"
+                placeholder="Adın (zorunlu)"
                 value={data.name ?? ""}
                 onChange={(e) => setData((d) => ({ ...d, name: e.target.value }))}
                 autoFocus
               />
-              <input
-                className="input"
-                type="file"
-                accept="image/*"
-                multiple
-                capture="environment"  // mobil kamerayı açar (destekleyen tarayıcılarda)
-                onChange={(e) => onFiles(e.target.files)}
-              />
+
+              {/* Dosya alanını sade ve net yapalım */}
+              <div>
+                <input
+                  id="photos"
+                  className="sr-only"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  capture="environment"
+                  onChange={(e) => onFiles(e.target.files)}
+                />
+                <label
+                  htmlFor="photos"
+                  className="flex h-11 cursor-pointer items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-3 text-sm text-neutral-700 hover:bg-neutral-100"
+                >
+                  <i className="fa-regular fa-image mr-2" />
+                  Kahve fincanı fotoğraflarını seç (en fazla 3)
+                </label>
+              </div>
             </div>
-            <p className="text-xs text-neutral-500">
-              En fazla 3 fotoğraf yükleyebilirsin. Net ve iyi ışıkta çekilmiş olmalı. Çerez kullanılmıyor.
-            </p>
 
             {!!data.photos?.length && (
               <div className="grid grid-cols-3 gap-3">
@@ -126,12 +141,16 @@ export default function StepForm() {
                 })}
               </div>
             )}
+
+            <p className="text-xs text-neutral-500">
+              Net, iyi ışıkta çekilmiş fincan/kapat fotoğrafları önerilir. Çerez kullanılmaz.
+            </p>
           </div>
         )}
 
         {step === 1 && (
           <div className="space-y-4">
-            <div className="text-lg font-semibold">Cinsiyetini seç</div>
+            <div className="text-lg font-semibold">Cinsiyet</div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {(["kadin", "erkek", "belirtmek-istemiyorum"] as Gender[]).map((g) => (
                 <button
@@ -149,7 +168,7 @@ export default function StepForm() {
 
         {step === 2 && (
           <div className="space-y-4">
-            <div className="text-lg font-semibold">Yaşın kaç?</div>
+            <div className="text-lg font-semibold">Yaş</div>
             <input
               className="input"
               type="number"
