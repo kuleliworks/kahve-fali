@@ -65,7 +65,10 @@ export default function ProgressOverlay({ onDone, minMs = 20000, maxMs = 30000 }
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
       <div className="card w-[92%] max-w-md p-6">
         <div className="mb-4 flex items-center gap-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+          <div className="h-3 w-full overflow-hidden rounded-full bg-stone-200">
+  <div className="h-full rounded-full bg-indigo-600 transition-[width] duration-200" style={{ width: `${pct}%` }} />
+</div>
+
           <div className="text-sm font-medium text-neutral-900">{MESSAGES[msgIndex]}</div>
         </div>
 
