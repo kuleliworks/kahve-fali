@@ -34,18 +34,49 @@
   .step-dot        { @apply h-2.5 w-2.5 rounded-full bg-neutral-200; }
   .step-dot.active { @apply bg-neutral-900; }
 }
-/* --------- Blog / SEO tipografisi --------- */
+/* ---- Global base (siyah-beyaz sertliğini yumuşat) ---- */
+body { @apply bg-stone-50 text-stone-900 antialiased; }
+
+/* ---- Bileşenler ---- */
 @layer components {
-  .prose-article { @apply prose prose-neutral max-w-none; }
-  .prose-article :where(h1,h2,h3,h4) { @apply text-neutral-900 tracking-tight font-semibold; }
+  /* Kart */
+  .card { @apply rounded-2xl bg-white shadow-lg ring-1 ring-stone-200; }
+
+  /* Butonlar */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium
+           shadow-sm ring-1 ring-stone-200 transition;
+  }
+  .btn-primary { @apply bg-indigo-600 text-white ring-indigo-600/10 hover:bg-indigo-700; }
+  .btn-ghost   { @apply bg-white text-stone-900 hover:bg-stone-50; }
+
+  /* Input */
+  .input {
+    @apply w-full rounded-xl border-0 bg-white px-3 py-2 text-stone-900 placeholder:text-stone-400
+           ring-1 ring-stone-200 focus:outline-none focus:ring-2 focus:ring-indigo-600;
+  }
+
+  /* Adım noktaları */
+  .step-dot        { @apply h-2.5 w-2.5 rounded-full bg-stone-200; }
+  .step-dot.active { @apply bg-indigo-600; }
+
+  /* Vurgu linki (istersen kullan) */
+  .link-accent { @apply text-indigo-700 hover:text-indigo-800 underline underline-offset-4; }
+}
+
+/* ---- SEO/Blog tipografisi (hiyerarşi net) ---- */
+@layer components {
+  .prose-article { @apply prose prose-stone max-w-none; }
+  .prose-article :where(h1,h2,h3,h4) { @apply text-stone-900 tracking-tight font-semibold; }
   .prose-article :where(h1) { @apply text-4xl sm:text-5xl leading-tight mb-4; }
   .prose-article :where(h2) { @apply mt-12 text-3xl sm:text-4xl mb-3; }
   .prose-article :where(h3) { @apply mt-8 text-2xl mb-2; }
-  .prose-article :where(p)  { @apply my-5 text-[18px] leading-8 text-neutral-800; }
+  .prose-article :where(p)  { @apply my-5 text-[18px] leading-8 text-stone-800; }
   .prose-article :where(ol,ul){ @apply my-4 pl-5; }
   .prose-article :where(li) { @apply my-1.5 leading-7; }
-  .prose-article :where(img){ @apply rounded-xl shadow-md ring-1 ring-neutral-200; }
-  .prose-article :where(a)  { @apply underline underline-offset-4 decoration-neutral-300 hover:decoration-neutral-500 text-neutral-900; }
-  .prose-article :where(blockquote){ @apply border-l-4 border-neutral-200 pl-4 italic text-neutral-700; }
-  .prose-article :where(code){ @apply rounded bg-neutral-100 px-1.5 py-0.5 text-[85%]; }
+  .prose-article :where(img){ @apply rounded-xl shadow-md ring-1 ring-stone-200; }
+  .prose-article :where(a)  { @apply underline underline-offset-4 decoration-stone-300 hover:decoration-stone-500 text-stone-900; }
+  .prose-article :where(blockquote){ @apply border-l-4 border-stone-200 pl-4 italic text-stone-700; }
+  .prose-article :where(code){ @apply rounded bg-stone-100 px-1.5 py-0.5 text-[85%]; }
 }
+
