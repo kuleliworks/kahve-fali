@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { SITE } from "@/lib/seo";
+import Footer from "@/components/Footer";
 import Nav from "@/components/Nav";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
