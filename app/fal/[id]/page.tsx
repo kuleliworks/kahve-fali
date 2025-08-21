@@ -6,8 +6,12 @@ import ShareButtons from "@/components/ShareButtons";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const data = decodeId(params.id);
+// Next.js 15: params -> Promise<{ id: string }>
+export async function generateMetadata(
+  props: { params: Promise<{ id: string }> }
+): Promise<Metadata> {
+  const { id } = await props.params;
+  const data = decodeId(id);
   const name = data?.n || "Fal Sonucu";
   return {
     title: `${name} için Fal Sonucu`,
@@ -20,14 +24,20 @@ function capFirst(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-export default async function Page({ params }: { params: { id: string } }) {
-  const payload = decodeId(params.id);
+export default async function Page(
+  props: { params: Promise<{ id: string }> }
+) {
+  const { id } = await props.params;
+  const payload = decodeId(id);
+
   if (!payload) {
     return (
       <section className="mx-auto max-w-3xl px-4 py-12">
         <div className="card p-8">
           <h1 className="text-2xl font-bold">Fal Sonucun</h1>
-        <p className="mt-2 text-neutral-600">Fal yorumunda beklenmedik bir durum oldu. Lütfen tekrar deneyin.</p>
+          <p className="mt-2 text-neutral-600">
+            Fal yorumunda beklenmedik bir durum oldu. Lütfen tekrar deneyin.
+          </p>
         </div>
       </section>
     );
@@ -58,7 +68,7 @@ export default async function Page({ params }: { params: { id: string } }) {
           </div>
 
           <div className="mt-6">
-            <ShareButtons id={params.id} title={`Fal Sonucu – ${name}`} />
+            <ShareButtons id={id} title={`Fal Sonucu – ${name}`} />
           </div>
         </div>
       </article>
@@ -72,7 +82,7 @@ export default async function Page({ params }: { params: { id: string } }) {
       </div>
 
       <div className="mt-10">
-        <ShareButtons id={params.id} title={`Fal Sonucu – ${name}`} />
+        <ShareButtons id={id} title={`Fal Sonucu – ${name}`} />
       </div>
     </section>
   );
