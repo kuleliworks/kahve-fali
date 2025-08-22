@@ -74,8 +74,10 @@ export default function BlogAdminPage() {
             <input className="input" placeholder="Başlık" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
             <input className="input" placeholder="Slug (boş bırakırsan otomatik)"
               value={editing.slug || ""} onChange={(e) => setEditing({ ...editing, slug: e.target.value })} />
-            <input className="input sm:col-span-2" placeholder="Öne çıkarılan görsel URL (opsiyonel)"
-              value={editing.image || ""} onChange={(e) => setEditing({ ...editing, image: e.target.value })} />
+const [image, setImage] = useState<string>("");
+
+<BlogImageUpload value={image} onChange={setImage} />
+
             <input className="input sm:col-span-2" placeholder="Kısa açıklama (description)"
               value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
             <select className="input" value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value as any })}>
