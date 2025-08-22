@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { decodeId } from "@/lib/id";
 import { buildFortune } from "@/lib/fortune";
 import ShareButtons from "@/components/ShareButtons";
+import { redis } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,6 +20,32 @@ export async function generateMetadata(
     robots: { index: false, follow: true },
   };
 }
+
+// (isteğe bağlı) engelli sayfalar noindex
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const blocked = Boolean(await redis.sismember("fal:blocked:set", id));
+  if (blocked) return { title: "Fal kaldırıldı", robots: { index: false, follow: false } };
+  return { title: "Fal Sonucu" }; // mevcut başlığın
+}
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
+  // 1) Engelli mi?
+  const blocked = Boolean(await redis.sismember("fal:blocked:set", id));
+  if (blocked) {
+    return (
+      <section className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold">Bu fal kaldırıldı</h1>
+        <p className="mt-3 text-neutral-600">Talep üzerine yayından kaldırılmıştır.</p>
+        <a href="/" className="mt-6 inline-block rounded-lg border px-4 py-2 hover:bg-stone-50">
+          Ana sayfaya dön
+        </a>
+      </section>
+    );
+  }
+
 
 function capFirst(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
