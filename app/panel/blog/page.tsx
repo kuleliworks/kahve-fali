@@ -1,6 +1,8 @@
 // app/panel/blog/page.tsx
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import BlogImageUpload from "@/components/BlogImageUpload";
+
 
 type Post = {
   title: string; slug: string; description?: string; image?: string; content?: string; status: "draft" | "pub";
