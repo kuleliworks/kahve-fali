@@ -9,7 +9,7 @@ export default function Nav() {
     <header className="bg-white/80 backdrop-blur shadow-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <a href="/" className="flex items-center gap-2">
-          <img src="/resim/sanal-kahve-fali-x2.png" alt="Logo" width={130} height={40} style={{ height: 40 }} />
+          <img src="/resim/sanal-kahve-fali-x2.png" alt="Logo" width={130} height={40} style={{ width: 110 }} />
         </a>
 
         {/* Desktop menu */}
