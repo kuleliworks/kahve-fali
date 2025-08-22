@@ -4,8 +4,21 @@ import { SITE } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Hakkımızda",
   description:
-    "Kahvefalin; modern arayüz ve gizlilik odaklı akışla sanal kahve falı ve online kahve falı deneyimini hızlı ve erişilebilir kılar.",
+    "Sanal Kahve Falı; modern arayüz ve gizlilik odaklı akışla sanal kahve falı ve online kahve falı deneyimini hızlı ve erişilebilir kılar.",
   alternates: { canonical: "/hakkimizda" },
+  openGraph: {
+    url: "/hakkimizda",
+    title: "Hakkımızda",
+    description:
+      "Sanal Kahve Falı’nın yaklaşımı: hız, gizlilik ve modern deneyim. Fincan fotoğraflarıyla çerezsiz, akıcı bir çevrimiçi fal akışı.",
+    images: [{ url: "/resim/sanal-kahve-fali-x2.png" }],
+  },
+  twitter: {
+    title: "Hakkımızda",
+    description:
+      "Sanal Kahve Falı’nın yaklaşımı: hız, gizlilik ve modern deneyim.",
+    images: ["/resim/sanal-kahve-fali-x2.png"],
+  },
 };
 
 export default function Page() {
@@ -15,13 +28,13 @@ export default function Page() {
     url: `${SITE.url}/hakkimizda`,
     mainEntity: {
       "@type": "Organization",
-      name: SITE.name,
+      name: SITE.name,             // "Sanal Kahve Falı"
       url: SITE.url,
       logo: `${SITE.url}/resim/sanal-kahve-fali-x2.png`,
       sameAs: [SITE.url],
     },
     description:
-      "Kahvefalin; gizlilik ve hız odaklı çevrimiçi kahve falı deneyimi sunar. Fotoğraflarını yükle, adım adım ilerle, sonucu paylaş.",
+      "Sanal Kahve Falı; gizlilik ve hız odaklı çevrimiçi kahve falı deneyimi sunar. Fotoğraflarını yükle, adım adım ilerle, sonucu paylaş.",
   };
 
   return (
@@ -30,8 +43,9 @@ export default function Page() {
       <div className="mx-auto max-w-3xl text-center">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Hakkımızda</h1>
         <p className="mt-4 text-stone-700">
-          Kahvefalin; <strong>sanal kahve falı</strong> ve <strong>online kahve falı</strong> deneyimini
-          modern, hızlı ve çerezsiz bir akışla sunar. Amacımız geleneği dijital konforla buluşturmak.
+          <strong>Sanal Kahve Falı</strong>; <strong>sanal kahve falı</strong> ve{" "}
+          <strong>online kahve falı</strong> deneyimini modern, hızlı ve çerezsiz bir akışla sunar.
+          Amacımız geleneği dijital konforla buluşturmak.
         </p>
       </div>
 
@@ -50,13 +64,13 @@ export default function Page() {
           </ul>
         </article>
 
-        {/* Sağ görsel — 1200×900, orana göre akıyor */}
+        {/* Sağ görsel — 1200×900 */}
         <div className="k-card p-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/resim/1-min.jpg"
             alt="Misyon & Değerler görseli"
-            className="w-full h-auto rounded-2xl object-cover"
+            className="h-auto w-full rounded-2xl object-cover"
             loading="lazy"
           />
         </div>
@@ -64,13 +78,13 @@ export default function Page() {
 
       {/* BLOK 2 — Sol görsel / Sağ içerik */}
       <div className="mx-auto mt-12 grid gap-8 lg:grid-cols-2">
-        {/* Sol görsel — 1200×900, orana göre akıyor */}
+        {/* Sol görsel — 1200×900 */}
         <div className="order-last k-card p-2 lg:order-first">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/resim/2-min.jpg"
             alt="Yaklaşımımız görseli"
-            className="w-full h-auto rounded-2xl object-cover"
+            className="h-auto w-full rounded-2xl object-cover"
             loading="lazy"
           />
         </div>
@@ -89,7 +103,7 @@ export default function Page() {
         </article>
       </div>
 
-      {/* BLOK 3 — Sol içerik / Sağ görsel (Yol Haritası yerine Güvence & İlkeler) */}
+      {/* BLOK 3 — Sol içerik / Sağ görsel */}
       <div className="mx-auto mt-12 grid gap-8 lg:grid-cols-2">
         <article className="prose-article">
           <h2>Güvence &amp; İlkeler</h2>
@@ -105,13 +119,13 @@ export default function Page() {
           </div>
         </article>
 
-        {/* Sağ görsel — 1200×900, orana göre akıyor */}
+        {/* Sağ görsel — 1200×900 */}
         <div className="k-card p-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/resim/3-min.jpg"
             alt="Güvence & İlkeler görseli"
-            className="w-full h-auto rounded-2xl object-cover"
+            className="h-auto w-full rounded-2xl object-cover"
             loading="lazy"
           />
         </div>
