@@ -1,7 +1,0 @@
-User-agent: *
-Allow: /
-
-# Fal sonuçları arama motoruna kapalı
-Disallow: /fal/
-
-Sitemap: https://www.kahvefalin.com/sitemap.xml
