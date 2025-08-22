@@ -12,19 +12,18 @@ function csvEscape(s: unknown) {
 }
 
 export async function GET() {
-  // Upstash generic kullanma; string[] döner
-  const ids = await redis.zrange("fal:index", 0, 999, { rev: true });
+  // Upstash dönüşü unknown[] olabilir → güvenli şekilde string[]'e çevir
+  const idsUnknown = await redis.zrange("fal:index", 0, 999, { rev: true });
+  const ids: string[] = (Array.isArray(idsUnknown) ? idsUnknown : []).map((v) => String(v));
 
   const raw = await Promise.all(
-    ids.map(async (id: string) => {
+    ids.map(async (id) => {
       const it = await redis.hgetall<Record<string, any>>(`fal:item:${id}`);
-      // it yoksa null dön
-      if (!it) return null;
-      return { id, ...it };
+      return it ? { id, ...it } : null;
     })
   );
 
-  // Type guard: null'ları düşür
+  // null'ları düşür (type guard)
   const typed = raw.filter(
     (r): r is { id: string } & Record<string, any> => r !== null
   );
