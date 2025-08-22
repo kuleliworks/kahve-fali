@@ -220,3 +220,19 @@ export default function StepForm() {
     </div>
   );
 }
+// Log yaz (bekletmeden)
+fetch("/api/fal-log", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name,                      // formdan
+    age,                       // formdan
+    gender,                    // formdan
+    photosCount: photos?.length || 0,
+    readingId,                 // oluşturduğun id
+    notes: intent || ""
+  }),
+}).catch(() => { /* sessizce yut */ });
+
+// sonra sonuç sayfasına yönlendir
+router.push(`/fal/${encodeURIComponent(readingId)}`);
