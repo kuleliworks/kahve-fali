@@ -3,7 +3,8 @@ import StepForm from "@/components/StepForm";
 
 /** SEO: sadece sayfa adı, marka layout şablonundan gelecek */
 export const metadata: Metadata = {
-  title: "Online Kahve Falı", // çıktı: "Online Kahve Falı | Sanal Kahve Falı"
+  // GEÇİCİ ZORLAMA: absolute kullan ve markayı ekle
+  title: { absolute: "Online Kahve Falı | Sanal Kahve Falı" },
   description:
     "Kahve fincanı fotoğraflarını yükle, adım adım ilerle ve modern arayüzde online kahve falı sonucunu hemen gör. Hızlı, güvenli ve çerezsiz.",
   alternates: { canonical: "/" },
