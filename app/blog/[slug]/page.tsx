@@ -15,10 +15,10 @@ type Post = {
   content?: string;      // HTML olarak tutulur
   createdAt?: string;    // timestamp (ms)
   updatedAt?: string;    // timestamp (ms)
-  status?: string;       // "pub" | "draft"
+  status?: "pub" | "draft";
 };
 
-// HTML'den kısa özet üret
+// HTML'den kısa özet üret (description yoksa)
 function excerptFromHtml(html: string, max = 160) {
   const text = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -45,15 +45,12 @@ const CLEAN_OPTS: IOptions = {
   transformTags: {
     a: (tagName, attribs) => {
       const href = attribs.href || "#";
-      const isExternal =
-        /^https?:\/\//i.test(href) && !href.startsWith(SITE.url);
+      const isExternal = /^https?:\/\//i.test(href) && !href.startsWith(SITE.url);
       return {
         tagName: "a",
         attribs: {
           ...attribs,
-          ...(isExternal
-            ? { target: "_blank", rel: "noopener nofollow noreferrer" }
-            : {})
+          ...(isExternal ? { target: "_blank", rel: "noopener nofollow noreferrer" } : {})
         }
       };
     }
@@ -71,7 +68,7 @@ async function getPost(slug: string): Promise<Post | null> {
     content: it.content,
     createdAt: it.createdAt,
     updatedAt: it.updatedAt,
-    status: it.status
+    status: it.status as "pub" | "draft"
   };
 }
 
@@ -131,10 +128,7 @@ export default async function Page(
     publisher: {
       "@type": "Organization",
       name: SITE.name,
-      logo: {
-        "@type": "ImageObject",
-        url: `${SITE.url}/resim/sanal-kahve-fali-x2.png`
-      }
+      logo: { "@type": "ImageObject", url: `${SITE.url}/resim/sanal-kahve-fali-x2.png` }
     },
     description: post.description || excerptFromHtml(safeHtml, 160)
   };
@@ -143,9 +137,7 @@ export default async function Page(
     <section className="mx-auto max-w-3xl px-4 py-12">
       {/* Başlık & meta */}
       <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          {post.title}
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{post.title}</h1>
         <div className="mt-2 text-sm text-stone-500">
           {published && <>Yayın: {published.toLocaleDateString("tr-TR")}</>}
           {updated && <> · Güncelleme: {updated.toLocaleDateString("tr-TR")}</>}
