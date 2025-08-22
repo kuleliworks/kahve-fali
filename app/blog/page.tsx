@@ -16,7 +16,12 @@ type Post = {
 };
 
 async function getPosts(): Promise<Post[]> {
-  const slugs = (await redis.zrange<string>("blog:index", 0, -1, { rev: true })) || [];
+  // TIP: generic KULLANMA, sonucu string[] olarak cast et
+  const slugs = (await redis.zrange("blog:index", 0, -1, { rev: true })) as string[];
+  // Eğer { rev: true } tip uyarısı verirse şu iki satırı kullan:
+  // const slugs = (await redis.zrange("blog:index", 0, -1)) as string[];
+  // slugs.reverse();
+
   const rows = await Promise.all(
     slugs.map(async (slug) => {
       const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
