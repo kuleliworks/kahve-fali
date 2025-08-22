@@ -1,8 +1,9 @@
+// lib/seo.ts
 export const SITE = {
-  name: "Kahvefalin",
-  title: "Sanal Kahve Falı – Online Kahve Falı",
+  name: "Sanal Kahve Falı",
+  title: "Sanal Kahve Falı",
   description:
-    "Fotoğraflarını yükle, adım adım ilerle ve modern arayüzde online kahve falı sonucunu hemen gör. Hızlı, güvenli ve çerezsiz.",
-  url: "https://www.kahvefalin.com", // alan adın
-  twitter: "@", // varsa güncelle
+    "Sanal kahve falı ile geleceğini keşfet! Fotoğraf yükle, anında yorum al. Eğlenceli, güvenilir ve hızlı kahve falı deneyimini yaşa.",
+  url: "https://www.kahvefalin.com", // www kullanıyorsan böyle bırak
+  twitter: "@kahvefalincom",         // yoksa null/"" bırakabilirsin
 };
