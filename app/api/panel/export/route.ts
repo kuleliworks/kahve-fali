@@ -12,7 +12,6 @@ function csvEscape(s: unknown) {
 }
 
 export async function GET() {
-  // Upstash dönüşü unknown[] olabilir → güvenli şekilde string[]'e çevir
   const idsUnknown = await redis.zrange("fal:index", 0, 999, { rev: true });
   const ids: string[] = (Array.isArray(idsUnknown) ? idsUnknown : []).map((v) => String(v));
 
@@ -23,7 +22,6 @@ export async function GET() {
     })
   );
 
-  // null'ları düşür (type guard)
   const typed = raw.filter(
     (r): r is { id: string } & Record<string, any> => r !== null
   );
