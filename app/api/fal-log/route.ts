@@ -29,18 +29,14 @@ export async function POST(req: Request) {
       createdAt: now,
     };
 
-    // HASH yaz
     await redis.hset(`fal:item:${id}`, item as Record<string, any>);
-
-    // ZSET'e ekle
     await redis.zadd("fal:index", { score: now, member: id });
 
-    // En fazla 1000 kayıt tut
     const total = await redis.zcard("fal:index");
     const keep = 1000;
     if (total > keep) {
       const toDelete = total - keep;
-      const oldUnknown = await redis.zrange("fal:index", 0, toDelete - 1); // en eski
+      const oldUnknown = await redis.zrange("fal:index", 0, toDelete - 1);
       const oldIds: string[] = (Array.isArray(oldUnknown) ? oldUnknown : []).map((v) => String(v));
       if (oldIds.length) {
         const p = redis.pipeline();
@@ -50,7 +46,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Opsiyonel Slack
+    // (opsiyonel) Slack
     const webhook = process.env.SLACK_WEBHOOK_URL;
     if (webhook) {
       const base = process.env.SITE_URL || "https://kahvefalin.com";
