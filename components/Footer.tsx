@@ -43,7 +43,6 @@ export default function Footer() {
               <li><Link className="hover:underline" href="/kvkk">KVKK Aydınlatma Metni</Link></li>
               <li><Link className="hover:underline" href="/kullanim-kosullari">Kullanım Koşulları</Link></li>
               <li><a className="hover:underline" href="/sitemap.xml">Sitemap</a></li>
-              <li><a className="hover:underline" href="/robots.txt">Robots.txt</a></li>
             </ul>
           </div>
 
