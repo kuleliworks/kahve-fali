@@ -17,16 +17,42 @@ export default function BlogImageUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // İsteğe bağlı: Vercel fonksiyon gövde limiti için 4 MB altı uyarı
+    const MAX_CLIENT = 4 * 1024 * 1024; // 4MB – güvenli eşik
+    if (file.size > MAX_CLIENT) {
+      setErr("Dosya çok büyük (4MB üstü). Lütfen daha küçük bir görsel yükleyin.");
+      return;
+    }
+
     const fd = new FormData();
     fd.append("file", file);
     setBusy(true);
     try {
       const res = await fetch("/api/blog/upload", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Yükleme başarısız.");
-      onChange(json.url); // formdaki image alanına URL yaz
+
+      // Güvenli ayrıştırma: önce text al, sonra içerik tipine göre JSON parse et
+      const ct = res.headers.get("content-type") || "";
+      const text = await res.text();
+      let json: any = null;
+      if (ct.includes("application/json")) {
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+          // JSON değilse json null kalır
+        }
+      }
+
+      if (!res.ok) {
+        // JSON hata mesajı varsa onu göster; yoksa text veya HTTP kodunu göster
+        const msg = (json && json.error) || text || `Yükleme hatası (HTTP ${res.status})`;
+        throw new Error(msg);
+      }
+
+      const url = json?.url;
+      if (!url) throw new Error("Sunucu görsel URL’i döndürmedi.");
+      onChange(url);
     } catch (e: any) {
-      setErr(e?.message || "Yükleme hatası");
+      setErr(e?.message || "Yükleme sırasında beklenmeyen bir hata oluştu.");
     } finally {
       setBusy(false);
     }
