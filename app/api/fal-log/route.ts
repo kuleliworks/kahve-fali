@@ -8,8 +8,8 @@ type Body = {
   age?: number | string;
   gender?: string;
   photosCount?: number | string;
-  readingId?: string;   // /fal/[id] için
-  notes?: string;       // niyet/mesaj (opsiyonel)
+  readingId?: string;
+  notes?: string;
 };
 
 export async function POST(req: Request) {
@@ -29,28 +29,28 @@ export async function POST(req: Request) {
       createdAt: now,
     };
 
-    // 1) Kayıt detayını HASH olarak yaz
-    await redis.hset(`fal:item:${id}`, item as any);
+    // HASH yaz
+    await redis.hset(`fal:item:${id}`, item as Record<string, any>);
 
-    // 2) Zaman skoruyla sıralı index'e ekle (yeni → büyük skor)
+    // ZSET'e ekle
     await redis.zadd("fal:index", { score: now, member: id });
 
-    // 3) En fazla 1000 kayıt tut (eskiyi temizle)
-    const keep = 1000;
+    // En fazla 1000 kayıt tut
     const total = await redis.zcard("fal:index");
+    const keep = 1000;
     if (total > keep) {
       const toDelete = total - keep;
-      // en eski ID'leri al
-      const oldIds = await redis.zrange<string[]>("fal:index", 0, toDelete - 1);
+      const oldUnknown = await redis.zrange("fal:index", 0, toDelete - 1); // en eski
+      const oldIds: string[] = (Array.isArray(oldUnknown) ? oldUnknown : []).map((v) => String(v));
       if (oldIds.length) {
         const p = redis.pipeline();
         p.zrem("fal:index", ...oldIds);
-        oldIds.forEach((oldId) => p.del(`fal:item:${oldId}`));
+        oldIds.forEach((oid) => p.del(`fal:item:${oid}`));
         await p.exec();
       }
     }
 
-    // (Opsiyonel) Slack bildirimi — env varsa
+    // Opsiyonel Slack
     const webhook = process.env.SLACK_WEBHOOK_URL;
     if (webhook) {
       const base = process.env.SITE_URL || "https://kahvefalin.com";
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ ok: true }), {
       headers: { "content-type": "application/json" },
     });
-  } catch (e) {
+  } catch {
     return new Response(JSON.stringify({ ok: false, error: "Kaydedilemedi." }), {
       status: 500,
       headers: { "content-type": "application/json" },
