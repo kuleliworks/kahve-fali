@@ -27,6 +27,71 @@ const TARGET_QUALITY_PRIMARY = 0.82; // ilk deneme kalite
 const TARGET_QUALITY_FALLBACK = 0.7; // yetmezse ikinci deneme
 const TARGET_MAX_MB_AFTER = 2.5;     // hedef dosya boyutu (~MB) sıkıştırma sonrası
 
+function bytesToMB(b: number) { return b / (1024 * 1024); }
+
+async function canDecodeViaBitmap(file: File) {
+  try {
+    const bmp = await createImageBitmap(file);
+    bmp.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readToBitmap(file: File): Promise<ImageBitmap> {
+  // Safari/Chrome modern: createImageBitmap hızlı ve EXIF’i dikkate alır
+  return await createImageBitmap(file);
+}
+
+function drawToCanvas(bmp: ImageBitmap, maxSide: number): HTMLCanvasElement {
+  const { width, height } = bmp;
+  const scale = Math.min(1, maxSide / Math.max(width, height));
+  const w = Math.max(1, Math.round(width * scale));
+  const h = Math.max(1, Math.round(height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(bmp, 0, 0, w, h);
+  return canvas;
+}
+
+async function canvasToBlobWithBudget(
+  canvas: HTMLCanvasElement,
+  targetMB: number,
+  primaryQuality = TARGET_QUALITY_PRIMARY,
+  fallbackQuality = TARGET_QUALITY_FALLBACK,
+  mime = "image/jpeg"
+): Promise<Blob> {
+  // önce primaryQuality deneriz, hedefe sığmıyorsa fallback
+  const blob1: Blob = await new Promise(res => canvas.toBlob(b => res(b!), mime, primaryQuality));
+  if (bytesToMB(blob1.size) <= targetMB) return blob1;
+
+  const blob2: Blob = await new Promise(res => canvas.toBlob(b => res(b!), mime, fallbackQuality));
+  return blob2; // 2. deneme; hala büyükse yine de kabul (server tarafında tekrar kısıtlayabilirsin)
+}
+
+async function compressImageSmart(file: File): Promise<File> {
+  // HEIC/HEIF bazı tarayıcılarda decode edilemez; decode edilemiyorsa orijinali bırakırız
+  const type = file.type || "application/octet-stream";
+  const canDecode = await canDecodeViaBitmap(file);
+
+  if (!canDecode) {
+    // decode edemiyorsak kullanıcı genelde Safari’dedir (HEIC destekli),
+    // Chrome’da ise orijinal kalır (büyük olabilir) — uyarıyı onFiles içinde veriyoruz.
+    return file;
+  }
+
+  const bmp = await readToBitmap(file);
+  const canvas = drawToCanvas(bmp, TARGET_MAX_SIDE);
+  bmp.close();
+  const blob = await canvasToBlobWithBudget(canvas, TARGET_MAX_MB_AFTER);
+  const out = new File([blob], file.name.replace(/\.(heic|heif|png|webp)$/i, ".jpg"), { type: "image/jpeg" });
+  return out;
+}
+
+
+
 
 async function filesToBase64(files: File[] = []): Promise<string[]> {
   const to64 = (f: File) =>
@@ -53,11 +118,63 @@ export default function StepForm() {
     return false;
   }, [data, step]);
 
-  const onFiles = useCallback((files: FileList | null) => {
-    if (!files) return;
-    const list = Array.from(files).slice(0, 3);
-    setData((d) => ({ ...d, photos: list }));
-  }, []);
+const onFiles = useCallback(async (files: FileList | null) => {
+  if (!files) return;
+
+  const picked = Array.from(files);
+  const limited = picked.slice(0, MAX_FILES);
+
+  const valid: File[] = [];
+  const errors: string[] = [];
+  let totalOriginal = 0;
+
+  for (const f of limited) {
+    // Tür
+    if (!ALLOWED_TYPES.includes(f.type)) {
+      errors.push(`${f.name}: desteklenmeyen format (${f.type || "bilinmiyor"})`);
+      continue;
+    }
+
+    totalOriginal += f.size;
+
+    // Tek dosya orijinal üst sınır (30MB)
+    if (bytesToMB(f.size) > MAX_ORIGINAL_MB) {
+      errors.push(`${f.name}: ${bytesToMB(f.size).toFixed(1)}MB > ${MAX_ORIGINAL_MB}MB orijinal limit`);
+      continue;
+    }
+
+    // Sıkıştır
+    let out = f;
+    try {
+      out = await compressImageSmart(f);
+    } catch {
+      // sıkıştırma başarısızsa orijinali bırak
+      out = f;
+    }
+
+    valid.push(out);
+  }
+
+  // Toplam orijinal limit kontrolü (45MB)
+  if (bytesToMB(totalOriginal) > TOTAL_MAX_MB) {
+    errors.push(`Toplam orijinal boyut ${bytesToMB(totalOriginal).toFixed(1)}MB — en fazla ${TOTAL_MAX_MB}MB olmalı.`);
+  }
+
+  // HEIC/HEIF ve decode uyarısı (Chrome gibi tarayıcılar)
+  const hasHeic = limited.some(f => /image\/hei[cf]/i.test(f.type));
+  if (hasHeic) {
+    const anyDecoded = await canDecodeViaBitmap(limited[0]).catch(() => false);
+    if (!anyDecoded) {
+      errors.push("HEIC/HEIF formatı tarayıcında dönüştürülemiyor olabilir. Lütfen JPEG/PNG kullan veya iPhone ayarlarından “En Uyumlu” seç.");
+    }
+  }
+
+  if (errors.length) alert(errors.join("\n"));
+  if (!valid.length || errors.length) return;
+
+  setData((d) => ({ ...d, photos: valid }));
+}, []);
+
 
   const startFortune = () => {
     setError(null);
