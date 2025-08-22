@@ -10,8 +10,12 @@ export async function POST(_req: Request, ctx: any) {
 
   if (!id) return new Response("Missing id", { status: 400 });
 
+  // 1) Panel listelerinden kaldır
   await redis.zrem("fal:index", id);
   await redis.del(`fal:item:${id}`);
+
+  // 2) Sonuç sayfasını da kapatmak için "engellenenler" setine ekle
+  await redis.sadd("fal:blocked:set", id);
 
   return new Response(null, { status: 302, headers: { Location: "/panel" } });
 }
