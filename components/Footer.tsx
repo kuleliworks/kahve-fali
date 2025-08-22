@@ -101,7 +101,6 @@ export default function Footer() {
             <div className="flex items-center gap-3">
               <span className="rounded-full bg-stone-100 px-3 py-1">Türkiye’de geliştirildi ☕</span>
               <span className="text-stone-400">•</span>
-              <span>Eğlence amaçlıdır — 18+</span>
             </div>
           </div>
         </div>
