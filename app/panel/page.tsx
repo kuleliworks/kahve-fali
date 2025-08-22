@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Panel — Gönderimler",
-  robots: { index: false, follow: false }, // noindex
+  robots: { index: false, follow: false },
 };
 
 function fmt(ts: number) {
@@ -17,7 +17,6 @@ function fmt(ts: number) {
 }
 
 export default async function Page() {
-  // Upstash unknown[] döndürebilir -> string[]'e çevir
   const idsUnknown = await redis.zrange("fal:index", 0, 199, { rev: true });
   const ids: string[] = (Array.isArray(idsUnknown) ? idsUnknown : []).map((v) => String(v));
 
