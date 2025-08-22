@@ -7,13 +7,12 @@ import Footer from "@/components/Footer";
 import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE.url), // ör: https://kahvefalin.com (veya https://www.kahvefalin.com)
+  metadataBase: new URL(SITE.url),
   title: {
-    default: SITE.title,           // "Sanal Kahve Falı"
-    template: `%s | ${SITE.name}`, // "Sayfa Başlığı | Sanal Kahve Falı"
+    default: SITE.title,              // "Sanal Kahve Falı"
+    template: `%s | ${SITE.name}`,    // <<--- ŞABLON
   },
   description: SITE.description,
-  applicationName: SITE.name,
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -21,14 +20,14 @@ export const metadata: Metadata = {
     title: SITE.title,
     description: SITE.description,
     siteName: SITE.name,
-    images: [{ url: `${SITE.url}/resim/sanal-kahve-fali-x2.png` }], // mutlak URL
+    images: [{ url: `${SITE.url}/resim/sanal-kahve-fali-x2.png` }],
   },
   twitter: {
     card: "summary_large_image",
     site: SITE.twitter || undefined,
     title: SITE.title,
     description: SITE.description,
-    images: [`${SITE.url}/resim/sanal-kahve-fali-x2.png`], // mutlak URL
+    images: [`${SITE.url}/resim/sanal-kahve-fali-x2.png`],
   },
   icons: {
     icon: "/favicon.ico",
