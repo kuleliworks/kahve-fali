@@ -4,7 +4,7 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const days = Number(process.env.RETENTION_DAYS || 30);
+  const days = Number(process.env.RETENTION_DAYS || 90);
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
   // Skora göre 0..cutoff arası id'ler (en eski)
