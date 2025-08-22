@@ -12,16 +12,16 @@ export default function Page() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "AboutPage",
-    "url": `${SITE.url}/hakkimizda`,
-    "mainEntity": {
+    url: `${SITE.url}/hakkimizda`,
+    mainEntity: {
       "@type": "Organization",
-      "name": SITE.name,
-      "url": SITE.url,
-      "logo": `${SITE.url}/resim/sanal-kahve-fali-x2.png`,
-      "sameAs": [SITE.url]
+      name: SITE.name,
+      url: SITE.url,
+      logo: `${SITE.url}/resim/sanal-kahve-fali-x2.png`,
+      sameAs: [SITE.url],
     },
-    "description":
-      "Kahvefalin; gizlilik ve hız odaklı çevrimiçi kahve falı deneyimi sunar. Fotoğraflarını yükle, adım adım ilerle, sonucu paylaş."
+    description:
+      "Kahvefalin; gizlilik ve hız odaklı çevrimiçi kahve falı deneyimi sunar. Fotoğraflarını yükle, adım adım ilerle, sonucu paylaş.",
   };
 
   return (
@@ -30,8 +30,8 @@ export default function Page() {
       <div className="mx-auto max-w-3xl text-center">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Hakkımızda</h1>
         <p className="mt-4 text-stone-700">
-          Kahvefalin; <strong>sanal kahve falı</strong> ve <strong>online kahve falı</strong> deneyimini
-          modern, hızlı ve çerezsiz bir akışla sunar. Amacımız; geleneği dijital konforla buluşturmak.
+          Kahvefalin; <strong>sanal kahve falı</strong> ve <strong>online kahve falı</strong> deneyimini modern, hızlı
+          ve çerezsiz bir akışla sunar. Amacımız; geleneği dijital konforla buluşturmak.
         </p>
       </div>
 
@@ -41,8 +41,8 @@ export default function Page() {
         <article className="prose-article">
           <h2>Misyonumuz</h2>
           <p>
-            Herkesin zahmetsizce, güvenle ve beklemeden kahve falı yorumuna ulaşabilmesini sağlamak.
-            Kullanıcı deneyimini yalın tutuyor, sonucu paylaşılabilir bir sayfada sunuyoruz.
+            Herkesin zahmetsizce, güvenle ve beklemeden kahve falı yorumuna ulaşabilmesini sağlamak. Kullanıcı
+            deneyimini yalın tutuyor, sonucu paylaşılabilir bir sayfada sunuyoruz.
           </p>
 
           <h2>Vizyonumuz</h2>
@@ -53,17 +53,25 @@ export default function Page() {
 
           <h2>Yaklaşımımız</h2>
           <ul>
-            <li><strong>Hız:</strong> Ortalama 20–30 saniyede sonuç sayfası.</li>
-            <li><strong>Gizlilik:</strong> Form akışında çerez kullanılmaz.</li>
-            <li><strong>Kullanılabilirlik:</strong> Adım adım, anlaşılır ve mobil uyumlu arayüz.</li>
-            <li><strong>Paylaşılabilirlik:</strong> Tek tıkla X, WhatsApp ve daha fazlası.</li>
+            <li>
+              <strong>Hız:</strong> Ortalama 20–30 saniyede sonuç sayfası.
+            </li>
+            <li>
+              <strong>Gizlilik:</strong> Form akışında çerez kullanılmaz.
+            </li>
+            <li>
+              <strong>Kullanılabilirlik:</strong> Adım adım, anlaşılır ve mobil uyumlu arayüz.
+            </li>
+            <li>
+              <strong>Paylaşılabilirlik:</strong> Tek tıkla X, WhatsApp ve daha fazlası.
+            </li>
           </ul>
 
           <h2>Güvenlik &amp; Gizlilik</h2>
           <p>
-            Yüklenen görseller ve form adımları gizlilik odaklı bir akışla işlenir.
-            Kullanıcıyı takip eden çerezler kullanmıyoruz. Gerekli hukuki metinler (Gizlilik, KVKK, Kullanım Koşulları)
-            yayınlandığında bağlantıları bu sayfaya eklenecek.
+            Yüklenen görseller ve form adımları gizlilik odaklı bir akışla işlenir. Kullanıcıyı takip eden çerezler
+            kullanmıyoruz. Gerekli hukuki metinler (Gizlilik, KVKK, Kullanım Koşulları) yayınlandığında bağlantıları bu
+            sayfaya eklenecek.
           </p>
 
           <h2>Yol Haritamız</h2>
@@ -71,12 +79,14 @@ export default function Page() {
             <div className="relative mb-6">
               <span className="absolute -left-3 top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
               <h3 className="font-semibold">2025 Q3 — Yayına Alma</h3>
-              <p className="text-stone-700">Web deneyiminin yayına alınması, sonuç sayfası ve paylaşım altyapısı.</p>
+              <p className="text-stone-700">
+                Web deneyiminin yayına alınması, sonuç sayfası ve paylaşım altyapısı.
+              </p>
             </div>
             <div className="relative mb-6">
               <span className="absolute -left-3 top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
               <h3 className="font-semibold">Kısa Vade — Blog &amp; İçerik</h3>
-              <p className="text-stone-700">Rehber yazılar, sık sorulan sorular ve örnek sonuçlarla organik büyüme.</p>
+              <p className="text-stone-700">Rehber yazılar, SSS ve örnek sonuçlarla organik büyüme.</p>
             </div>
             <div className="relative">
               <span className="absolute -left-3 top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
@@ -89,5 +99,44 @@ export default function Page() {
         {/* SAĞ: Öne çıkanlar / iletişim / CTA */}
         <aside className="space-y-4">
           <div className="k-card">
-            <div className="k-badge"><i className="fa-solid fa-sparkles" /> Öne Çıkanlar</div>
+            <div className="k-badge">
+              <i className="fa-solid fa-sparkles" /> Öne Çıkanlar
+            </div>
             <ul className="k-list-check mt-3">
+              <li>20–30 sn içinde sonuç</li>
+              <li>Çerezsiz form akışı</li>
+              <li>Paylaşılabilir bağlantı</li>
+              <li>Mobil uyumlu arayüz</li>
+            </ul>
+          </div>
+
+          <div className="k-card">
+            <div className="k-badge">
+              <i className="fa-solid fa-headset" /> Bize Ulaşın
+            </div>
+            <ul className="mt-3 space-y-2 text-sm text-stone-700">
+              <li>
+                <a className="hover:underline" href="/iletisim">
+                  İletişim Formu
+                </a>
+              </li>
+              <li>
+                <a className="hover:underline" href="mailto:info@kahvefalin.com">
+                  info@kahvefalin.com
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <a href="/#form" className="k-card block text-center transition hover:shadow-lg">
+            <div className="text-sm text-stone-600">Hazır mısın?</div>
+            <div className="mt-1 font-semibold">Falını hemen gönder</div>
+          </a>
+        </aside>
+      </div>
+
+      {/* JSON-LD */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+    </section>
+  );
+}
