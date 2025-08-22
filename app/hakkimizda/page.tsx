@@ -50,33 +50,29 @@ export default function Page() {
           </ul>
         </article>
 
-        {/* Sağ görsel */}
+        {/* Sağ görsel — 1200×900, orana göre akıyor */}
         <div className="k-card p-2">
-          <div className="h-60 w-full overflow-hidden rounded-2xl sm:h-72 lg:h-80">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/resim/1-min.jpg"
-              alt="Misyon & Değerler görseli"
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/resim/1-min.jpg"
+            alt="Misyon & Değerler görseli"
+            className="w-full h-auto rounded-2xl object-cover"
+            loading="lazy"
+          />
         </div>
       </div>
 
       {/* BLOK 2 — Sol görsel / Sağ içerik */}
       <div className="mx-auto mt-12 grid gap-8 lg:grid-cols-2">
-        {/* Sol görsel (mobilde alta, büyük ekranda sola) */}
+        {/* Sol görsel — 1200×900, orana göre akıyor */}
         <div className="order-last k-card p-2 lg:order-first">
-          <div className="h-60 w-full overflow-hidden rounded-2xl sm:h-72 lg:h-80">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/resim/2-min.jpg"
-              alt="Yaklaşımımız görseli"
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/resim/2-min.jpg"
+            alt="Yaklaşımımız görseli"
+            className="w-full h-auto rounded-2xl object-cover"
+            loading="lazy"
+          />
         </div>
 
         <article className="prose-article">
@@ -93,40 +89,31 @@ export default function Page() {
         </article>
       </div>
 
-      {/* BLOK 3 — Sol içerik / Sağ görsel */}
+      {/* BLOK 3 — Sol içerik / Sağ görsel (Yol Haritası yerine Güvence & İlkeler) */}
       <div className="mx-auto mt-12 grid gap-8 lg:grid-cols-2">
         <article className="prose-article">
-          <h2>Yol Haritamız</h2>
-          <div className="not-prose relative ml-2 border-l-2 border-stone-200 pl-6">
-            <div className="relative mb-6">
-              <span className="absolute -left-3 top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
-              <h3 className="font-semibold">2025 Q3 — Yayına Alma</h3>
-              <p className="text-stone-700">Web deneyiminin yayına alınması, sonuç sayfası ve paylaşım altyapısı.</p>
-            </div>
-            <div className="relative mb-6">
-              <span className="absolute -left-3 top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
-              <h3 className="font-semibold">Kısa Vade — Blog &amp; İçerik</h3>
-              <p className="text-stone-700">Rehber yazılar, SSS ve örnek sonuçlarla organik büyüme.</p>
-            </div>
-            <div className="relative">
-              <span className="absolute -left-3 top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
-              <h3 className="font-semibold">Orta Vade — Mobil Uygulama</h3>
-              <p className="text-stone-700">iOS/Android uygulamaları ve bildirimlerle zenginleştirilmiş deneyim.</p>
-            </div>
+          <h2>Güvence &amp; İlkeler</h2>
+          <ul>
+            <li><strong>Şeffaflık:</strong> Sonuç sayfasında açık ve anlaşılır metin; yanıltıcı vaat yok.</li>
+            <li><strong>İçerik kalitesi:</strong> Net çekim önerileri ve anlaşılır yorum dili.</li>
+            <li><strong>Erişilebilirlik:</strong> Mobil öncelikli tasarım ve yüksek performans.</li>
+            <li><strong>Destek:</strong> Soruların için <a href="/iletisim">iletişim</a> kanalımız açık.</li>
+          </ul>
+          <div className="k-note mt-4 text-sm text-stone-700">
+            <i className="fa-regular fa-circle-check mr-2" />
+            Form akışında çerez kullanılmaz; gizlilik odaklı bir deneyim sunarız.
           </div>
         </article>
 
-        {/* Sağ görsel */}
+        {/* Sağ görsel — 1200×900, orana göre akıyor */}
         <div className="k-card p-2">
-          <div className="h-60 w-full overflow-hidden rounded-2xl sm:h-72 lg:h-80">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/resim/3-min.jpg"
-              alt="Yol haritası görseli"
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/resim/3-min.jpg"
+            alt="Güvence & İlkeler görseli"
+            className="w-full h-auto rounded-2xl object-cover"
+            loading="lazy"
+          />
         </div>
       </div>
 
