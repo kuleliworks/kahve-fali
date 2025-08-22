@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
 import StepForm from "@/components/StepForm";
+
+/** SEO: sadece sayfa adı, marka layout şablonundan gelecek */
+export const metadata: Metadata = {
+  title: "Online Kahve Falı", // çıktı: "Online Kahve Falı | Sanal Kahve Falı"
+  description:
+    "Kahve fincanı fotoğraflarını yükle, adım adım ilerle ve modern arayüzde online kahve falı sonucunu hemen gör. Hızlı, güvenli ve çerezsiz.",
+  alternates: { canonical: "/" },
+};
 
 export default function Page() {
   // JSON-LD: FAQ ve HowTo (zengin sonuçlar)
@@ -102,10 +111,10 @@ export default function Page() {
             </ol>
           </div>
 
-          {/* Neden Kahvefalin? */}
+          {/* Neden Sanal Kahve Falı? */}
           <div className="k-card h-full">
             <div className="flex items-center gap-2 text-sm font-medium text-indigo-700">
-              <i className="fa-solid fa-sparkles"></i> Neden Kahvefalin?
+              <i className="fa-solid fa-sparkles"></i> Neden Sanal Kahve Falı?
             </div>
             <ul className="k-list-check mt-3">
               <li><strong>Hızlı:</strong> Ortalama 20–30 saniyede sonuç.</li>
