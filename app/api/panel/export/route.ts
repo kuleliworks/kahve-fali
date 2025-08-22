@@ -14,16 +14,17 @@ function csvEscape(s: unknown) {
 export async function GET() {
   const ids = await redis.zrange<string[]>("fal:index", 0, 999, { rev: true });
 
-  const rows = await Promise.all(
+  const raw = await Promise.all(
     ids.map(async (id) => {
       const it = await redis.hgetall<Record<string, any>>(`fal:item:${id}`);
-      return it ? { id, ...it } : null;
+      if (!it) return null as const;
+      return { id, ...it };
     })
   );
 
-  // TIP GUARD: null'ları düşür ve TS’ye “Artık null değil” de
-  const typed: Array<Record<string, any>> = rows.filter(
-    (r): r is Record<string, any> => r !== null
+  // Type guard: null'ları düşür ve TS'nin tipi çıkarmasına izin ver
+  const typed = raw.filter(
+    (r): r is { id: string } & Record<string, any> => r !== null
   );
 
   const lines: string[] = ["id,createdAt,name,age,gender,photosCount,notes"];
