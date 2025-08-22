@@ -2,10 +2,23 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { redis } from "@/lib/redis";
-import sanitizeHtml from "sanitize-html";
+import sanitizeHtml, { IOptions } from "sanitize-html";
 import { SITE } from "@/lib/seo";
 
-// Basit özet üretici (HTML'den düz metin çıkarır)
+export const dynamic = "force-dynamic"; // KV'den dinamik okuma
+
+type Post = {
+  title: string;
+  slug: string;
+  description?: string;
+  image?: string;
+  content?: string;      // HTML olarak tutulur
+  createdAt?: string;    // timestamp (ms)
+  updatedAt?: string;    // timestamp (ms)
+  status?: string;       // "pub" | "draft"
+};
+
+// HTML'den kısa özet üret
 function excerptFromHtml(html: string, max = 160) {
   const text = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -17,10 +30,11 @@ function excerptFromHtml(html: string, max = 160) {
 }
 
 // Güvenli HTML seçenekleri
-const CLEAN_OPTS: sanitizeHtml.IOptions = {
+const CLEAN_OPTS: IOptions = {
   allowedTags: [
     "p","h1","h2","h3","h4","strong","em","u","s","a","ul","ol","li",
-    "blockquote","code","pre","hr","br","img","figure","figcaption","table","thead","tbody","tr","th","td"
+    "blockquote","code","pre","hr","br","img","figure","figcaption",
+    "table","thead","tbody","tr","th","td"
   ],
   allowedAttributes: {
     a: ["href","title","target","rel"],
@@ -31,27 +45,19 @@ const CLEAN_OPTS: sanitizeHtml.IOptions = {
   transformTags: {
     a: (tagName, attribs) => {
       const href = attribs.href || "#";
-      const isExternal = /^https?:\/\//i.test(href) && !href.startsWith(SITE.url);
+      const isExternal =
+        /^https?:\/\//i.test(href) && !href.startsWith(SITE.url);
       return {
         tagName: "a",
         attribs: {
           ...attribs,
-          ...(isExternal ? { target: "_blank", rel: "noopener nofollow noreferrer" } : {})
+          ...(isExternal
+            ? { target: "_blank", rel: "noopener nofollow noreferrer" }
+            : {})
         }
       };
     }
   }
-};
-
-type Post = {
-  title: string;
-  slug: string;
-  description?: string;
-  image?: string;
-  content?: string;      // HTML olarak tutulacak
-  createdAt?: string;
-  updatedAt?: string;
-  status?: string;       // "pub"|"draft"
 };
 
 async function getPost(slug: string): Promise<Post | null> {
@@ -69,7 +75,9 @@ async function getPost(slug: string): Promise<Post | null> {
   };
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPost(slug);
   if (!post) return { title: "Yazı bulunamadı" };
@@ -99,7 +107,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+export default async function Page(
+  { params }: { params: Promise<{ slug: string }> }
+) {
   const { slug } = await params;
   const post = await getPost(slug);
   if (!post) return notFound();
@@ -121,7 +131,10 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     publisher: {
       "@type": "Organization",
       name: SITE.name,
-      logo: { "@type": "ImageObject", url: `${SITE.url}/resim/sanal-kahve-fali-x2.png` }
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE.url}/resim/sanal-kahve-fali-x2.png`
+      }
     },
     description: post.description || excerptFromHtml(safeHtml, 160)
   };
@@ -130,7 +143,9 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     <section className="mx-auto max-w-3xl px-4 py-12">
       {/* Başlık & meta */}
       <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{post.title}</h1>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          {post.title}
+        </h1>
         <div className="mt-2 text-sm text-stone-500">
           {published && <>Yayın: {published.toLocaleDateString("tr-TR")}</>}
           {updated && <> · Güncelleme: {updated.toLocaleDateString("tr-TR")}</>}
