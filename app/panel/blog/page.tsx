@@ -81,7 +81,7 @@ const [image, setImage] = useState<string>("");
             <input className="input sm:col-span-2" placeholder="Kısa açıklama (description)"
               value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
             <select className="input" value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value as any })}>
-             <option value="draft">Taslak</option>
+          <option value="draft">Taslak</option>
 <option value="pub">Yayınla</option>
 </select>
 </div>
