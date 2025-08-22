@@ -49,6 +49,26 @@ export default function StepForm() {
     setShowProgress(true);
   };
 
+  // Log API'si: bekletmeden kayıt düşer (panel için)
+  async function logFalSubmission(args: {
+    name: string;
+    age: string | number;
+    gender: string;
+    photosCount: number;
+    readingId: string;
+    notes?: string;
+  }) {
+    try {
+      await fetch("/api/fal-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+    } catch {
+      // sessizce yut
+    }
+  }
+
   const onProgressDone = useCallback(async () => {
     try {
       const photos64 = await filesToBase64(data.photos || []);
@@ -64,8 +84,18 @@ export default function StepForm() {
         }),
       });
 
-      const json = await res.json().catch(() => ({}));
+      const json = await res.json().catch(() => ({} as any));
       if (res.ok && json?.id) {
+        // Panel kaydı için log at (await etmeden)
+        logFalSubmission({
+          name: String(data.name || ""),
+          age: data.age ?? "",
+          gender: String(data.gender || ""),
+          photosCount: data.photos?.length ?? 0,
+          readingId: String(json.id),
+          notes: "", // şu an niyet alanı yok; eklersen buraya geçir
+        });
+
         router.push(`/fal/${json.id}`);
         return;
       }
@@ -107,7 +137,7 @@ export default function StepForm() {
                 autoFocus
               />
 
-              {/* Dosya alanını sade ve net yapalım */}
+              {/* Dosya alanı */}
               <div>
                 <input
                   id="photos"
@@ -220,19 +250,3 @@ export default function StepForm() {
     </div>
   );
 }
-// Log yaz (bekletmeden)
-fetch("/api/fal-log", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    name,                      // formdan
-    age,                       // formdan
-    gender,                    // formdan
-    photosCount: photos?.length || 0,
-    readingId,                 // oluşturduğun id
-    notes: intent || ""
-  }),
-}).catch(() => { /* sessizce yut */ });
-
-// sonra sonuç sayfasına yönlendir
-router.push(`/fal/${encodeURIComponent(readingId)}`);
