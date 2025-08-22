@@ -1,10 +1,25 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Kullanım Koşulları — Sanal Kahve Falı",
+  title: "Kullanım Koşulları",
   description:
-    "Sanal Kahve Falı kullanım koşulları: hizmet kapsamı, yasaklar, fikri haklar, sorumluluk sınırlamaları ve uygulanacak hukuk.",
+    "Sanal Kahve Falı hizmetlerinin kullanımına ilişkin şartlar ve yükümlülükler.",
   alternates: { canonical: "/kullanim-kosullari" },
+  openGraph: {
+    url: "/kullanim-kosullari",
+    title: "Kullanım Koşulları",
+    description:
+      "Sanal Kahve Falı hizmetlerinin kullanımına ilişkin şartlar ve yükümlülükler.",
+    images: [{ url: "/resim/sanal-kahve-fali-x2.png" }],
+    type: "article",
+  },
+  twitter: {
+    title: "Kullanım Koşulları",
+    description:
+      "Sanal Kahve Falı hizmetlerinin kullanımına ilişkin şartlar ve yükümlülükler.",
+    images: ["/resim/sanal-kahve-fali-x2.png"],
+    card: "summary_large_image",
+  },
 };
 
 export default function Page() {
