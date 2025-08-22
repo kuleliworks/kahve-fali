@@ -40,8 +40,8 @@ export default function Page() {
         <article className="prose-article">
           <h2>Misyon &amp; Değerler</h2>
           <p>
-            Herkesin zahmetsizce, güvenle ve beklemeden kahve falı yorumuna ulaşabilmesini sağlıyoruz. Kullanıcı
-            deneyimini yalın tutuyor, sonucu paylaşılabilir bir sayfada sunuyoruz.
+            Herkesin zahmetsizce, güvenle ve beklemeden kahve falı yorumuna ulaşabilmesini sağlıyoruz.
+            Kullanıcı deneyimini yalın tutuyor, sonucu paylaşılabilir bir sayfada sunuyoruz.
           </p>
           <ul>
             <li><strong>Hız:</strong> Ortalama 20–30 saniyede sonuç.</li>
@@ -50,28 +50,32 @@ export default function Page() {
           </ul>
         </article>
 
-        {/* Görsel placeholder */}
-        <div className="k-card flex items-center justify-center">
-          {/* Görseli eklemek için aşağıdaki <div> yerine <img> kullan:
-              <img src="/resim/hakkimizda-1.jpg" alt="Misyon görseli"
-                   className="h-full w-full rounded-xl object-cover" />
-          */}
-          <div className="h-60 w-full rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 sm:h-72 lg:h-80 flex items-center justify-center text-stone-400">
-            Görsel alanı — 1200×900 önerilir
+        {/* Sağ görsel */}
+        <div className="k-card p-2">
+          <div className="h-60 w-full overflow-hidden rounded-2xl sm:h-72 lg:h-80">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/resim/1-min.jpg"
+              alt="Misyon & Değerler görseli"
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
           </div>
         </div>
       </div>
 
       {/* BLOK 2 — Sol görsel / Sağ içerik */}
       <div className="mx-auto mt-12 grid gap-8 lg:grid-cols-2">
-        {/* Görsel placeholder */}
-        <div className="order-last k-card flex items-center justify-center lg:order-first">
-          {/* Görseli eklemek için:
-              <img src="/resim/hakkimizda-2.jpg" alt="Yaklaşım görseli"
-                   className="h-full w-full rounded-xl object-cover" />
-          */}
-          <div className="h-60 w-full rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 sm:h-72 lg:h-80 flex items-center justify-center text-stone-400">
-            Görsel alanı — 1400×900 önerilir
+        {/* Sol görsel (mobilde alta, büyük ekranda sola) */}
+        <div className="order-last k-card p-2 lg:order-first">
+          <div className="h-60 w-full overflow-hidden rounded-2xl sm:h-72 lg:h-80">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/resim/2-min.jpg"
+              alt="Yaklaşımımız görseli"
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
           </div>
         </div>
 
@@ -112,14 +116,16 @@ export default function Page() {
           </div>
         </article>
 
-        {/* Görsel placeholder */}
-        <div className="k-card flex items-center justify-center">
-          {/* Görseli eklemek için:
-              <img src="/resim/hakkimizda-3.jpg" alt="Yol haritası görseli"
-                   className="h-full w-full rounded-xl object-cover" />
-          */}
-          <div className="h-60 w-full rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 sm:h-72 lg:h-80 flex items-center justify-center text-stone-400">
-            Görsel alanı — 1600×1000 önerilir
+        {/* Sağ görsel */}
+        <div className="k-card p-2">
+          <div className="h-60 w-full overflow-hidden rounded-2xl sm:h-72 lg:h-80">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/resim/3-min.jpg"
+              alt="Yol haritası görseli"
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
           </div>
         </div>
       </div>
