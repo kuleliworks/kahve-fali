@@ -6,7 +6,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const slugs = (await redis.zrange<string>("blog:index", 0, -1, { rev: true })) || [];
+    // generic kaldır + cast et
+    const slugs = (await redis.zrange("blog:index", 0, -1, { rev: true })) as string[];
+    // Eğer { rev: true } takılırsa:
+    // const slugs = (await redis.zrange("blog:index", 0, -1)) as string[];
+    // slugs.reverse();
+
     const rows = await Promise.all(
       slugs.map(async (slug) => {
         const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
@@ -28,3 +33,4 @@ export async function GET() {
     return NextResponse.json({ error: e?.message || "list error" }, { status: 500 });
   }
 }
+
