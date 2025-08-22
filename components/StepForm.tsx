@@ -13,6 +13,21 @@ type StepData = {
   photos?: File[];
 };
 
+// --- Upload guard (güncel) ---
+const MAX_FILES = 3;                 // en fazla 3 fotoğraf
+const MAX_ORIGINAL_MB = 30;          // tek dosya orijinal üst sınır (iPhone büyükler için geniş)
+const TOTAL_MAX_MB = 45;             // toplam üst sınır (orijinal)
+const ALLOWED_TYPES = [
+  "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"
+];
+
+// --- Sıkıştırma hedefleri ---
+const TARGET_MAX_SIDE = 2000;        // en uzun kenarı 2000px'e indir
+const TARGET_QUALITY_PRIMARY = 0.82; // ilk deneme kalite
+const TARGET_QUALITY_FALLBACK = 0.7; // yetmezse ikinci deneme
+const TARGET_MAX_MB_AFTER = 2.5;     // hedef dosya boyutu (~MB) sıkıştırma sonrası
+
+
 async function filesToBase64(files: File[] = []): Promise<string[]> {
   const to64 = (f: File) =>
     new Promise<string>((res, rej) => {
