@@ -17,13 +17,19 @@ function fmt(ts: number) {
 }
 
 export default async function Page() {
-  // En yeni 200 kayıt (REV: büyükten küçüğe)
-  const ids = await redis.zrange<string[]>("fal:index", 0, 199, { rev: true });
-  const rows = await Promise.all(
+  // Upstash unknown[] döndürebilir -> string[]'e çevir
+  const idsUnknown = await redis.zrange("fal:index", 0, 199, { rev: true });
+  const ids: string[] = (Array.isArray(idsUnknown) ? idsUnknown : []).map((v) => String(v));
+
+  const raw = await Promise.all(
     ids.map(async (id) => {
       const it = await redis.hgetall<Record<string, any>>(`fal:item:${id}`);
-      return it ? { ...it, id } : null;
+      return it ? { id, ...it } : null;
     })
+  );
+
+  const rows = raw.filter(
+    (r): r is { id: string } & Record<string, any> => r !== null
   );
 
   return (
@@ -44,7 +50,7 @@ export default async function Page() {
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
-            {rows.filter(Boolean).map((r: any) => (
+            {rows.map((r) => (
               <tr key={r.id}>
                 <td className="px-3 py-2">{fmt(Number(r.createdAt))}</td>
                 <td className="px-3 py-2">{r.name || "-"}</td>
