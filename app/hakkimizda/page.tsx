@@ -4,7 +4,7 @@ import { SITE } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Hakkımızda",
   description:
-    "Kahvefalin; modern arayüz ve gizlilik odaklı akışla sanal kahve falı ve online kahve falı deneyimini herkes için hızlı ve erişilebilir kılar.",
+    "Kahvefalin; modern arayüz ve gizlilik odaklı akışla sanal kahve falı ve online kahve falı deneyimini hızlı ve erişilebilir kılar.",
   alternates: { canonical: "/hakkimizda" },
 };
 
@@ -30,58 +30,74 @@ export default function Page() {
       <div className="mx-auto max-w-3xl text-center">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Hakkımızda</h1>
         <p className="mt-4 text-stone-700">
-          Kahvefalin; <strong>sanal kahve falı</strong> ve <strong>online kahve falı</strong> deneyimini modern, hızlı
-          ve çerezsiz bir akışla sunar. Amacımız; geleneği dijital konforla buluşturmak.
+          Kahvefalin; <strong>sanal kahve falı</strong> ve <strong>online kahve falı</strong> deneyimini
+          modern, hızlı ve çerezsiz bir akışla sunar. Amacımız geleneği dijital konforla buluşturmak.
         </p>
       </div>
 
-      {/* İKİ SÜTUN: Sol içerik, sağ öne çıkanlar */}
-      <div className="mx-auto mt-10 grid max-w-6xl gap-8 lg:grid-cols-[1.6fr,1fr]">
-        {/* SOL: Kurumsal metin */}
+      {/* BLOK 1 — Sol içerik / Sağ görsel */}
+      <div className="mx-auto mt-12 grid gap-8 lg:grid-cols-2">
         <article className="prose-article">
-          <h2>Misyonumuz</h2>
+          <h2>Misyon &amp; Değerler</h2>
           <p>
-            Herkesin zahmetsizce, güvenle ve beklemeden kahve falı yorumuna ulaşabilmesini sağlamak. Kullanıcı
+            Herkesin zahmetsizce, güvenle ve beklemeden kahve falı yorumuna ulaşabilmesini sağlıyoruz. Kullanıcı
             deneyimini yalın tutuyor, sonucu paylaşılabilir bir sayfada sunuyoruz.
           </p>
-
-          <h2>Vizyonumuz</h2>
-          <p>
-            Kahve kültürünü koruyarak, teknolojinin sağladığı hız ve erişilebilirlikten en iyi şekilde faydalanmak.
-            Yakında uygulama deneyimini de güçlendirerek çok kanallı bir platforma dönüşmeyi hedefliyoruz.
-          </p>
-
-          <h2>Yaklaşımımız</h2>
           <ul>
-            <li>
-              <strong>Hız:</strong> Ortalama 20–30 saniyede sonuç sayfası.
-            </li>
-            <li>
-              <strong>Gizlilik:</strong> Form akışında çerez kullanılmaz.
-            </li>
-            <li>
-              <strong>Kullanılabilirlik:</strong> Adım adım, anlaşılır ve mobil uyumlu arayüz.
-            </li>
-            <li>
-              <strong>Paylaşılabilirlik:</strong> Tek tıkla X, WhatsApp ve daha fazlası.
-            </li>
+            <li><strong>Hız:</strong> Ortalama 20–30 saniyede sonuç.</li>
+            <li><strong>Gizlilik:</strong> Form akışında çerez kullanılmaz.</li>
+            <li><strong>Kullanılabilirlik:</strong> Adım adım, anlaşılır ve mobil uyumlu arayüz.</li>
           </ul>
+        </article>
 
-          <h2>Güvenlik &amp; Gizlilik</h2>
+        {/* Görsel placeholder */}
+        <div className="k-card flex items-center justify-center">
+          {/* Görseli eklemek için aşağıdaki <div> yerine <img> kullan:
+              <img src="/resim/hakkimizda-1.jpg" alt="Misyon görseli"
+                   className="h-full w-full rounded-xl object-cover" />
+          */}
+          <div className="h-60 w-full rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 sm:h-72 lg:h-80 flex items-center justify-center text-stone-400">
+            Görsel alanı — 1200×900 önerilir
+          </div>
+        </div>
+      </div>
+
+      {/* BLOK 2 — Sol görsel / Sağ içerik */}
+      <div className="mx-auto mt-12 grid gap-8 lg:grid-cols-2">
+        {/* Görsel placeholder */}
+        <div className="order-last k-card flex items-center justify-center lg:order-first">
+          {/* Görseli eklemek için:
+              <img src="/resim/hakkimizda-2.jpg" alt="Yaklaşım görseli"
+                   className="h-full w-full rounded-xl object-cover" />
+          */}
+          <div className="h-60 w-full rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 sm:h-72 lg:h-80 flex items-center justify-center text-stone-400">
+            Görsel alanı — 1400×900 önerilir
+          </div>
+        </div>
+
+        <article className="prose-article">
+          <h2>Yaklaşımımız</h2>
           <p>
-            Yüklenen görseller ve form adımları gizlilik odaklı bir akışla işlenir. Kullanıcıyı takip eden çerezler
-            kullanmıyoruz. Gerekli hukuki metinler (Gizlilik, KVKK, Kullanım Koşulları) yayınlandığında bağlantıları bu
-            sayfaya eklenecek.
+            Kahve kültürünü koruyarak, teknolojinin sağladığı hız ve erişilebilirlikten en iyi şekilde faydalanıyoruz.
+            Deneyimi sade tutuyor, her adımı net ve anlaşılır tasarlıyoruz.
           </p>
+          <ul>
+            <li><strong>Adım adım akış:</strong> İsim, fotoğraflar, temel bilgiler ve fal.</li>
+            <li><strong>Paylaşılabilirlik:</strong> Tek tıkla X, WhatsApp ve daha fazlasına paylaş.</li>
+            <li><strong>Mobil uyum:</strong> Kamera ile çekim desteği.</li>
+          </ul>
+        </article>
+      </div>
 
+      {/* BLOK 3 — Sol içerik / Sağ görsel */}
+      <div className="mx-auto mt-12 grid gap-8 lg:grid-cols-2">
+        <article className="prose-article">
           <h2>Yol Haritamız</h2>
           <div className="not-prose relative ml-2 border-l-2 border-stone-200 pl-6">
             <div className="relative mb-6">
               <span className="absolute -left-3 top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
               <h3 className="font-semibold">2025 Q3 — Yayına Alma</h3>
-              <p className="text-stone-700">
-                Web deneyiminin yayına alınması, sonuç sayfası ve paylaşım altyapısı.
-              </p>
+              <p className="text-stone-700">Web deneyiminin yayına alınması, sonuç sayfası ve paylaşım altyapısı.</p>
             </div>
             <div className="relative mb-6">
               <span className="absolute -left-3 top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-600" />
@@ -96,43 +112,24 @@ export default function Page() {
           </div>
         </article>
 
-        {/* SAĞ: Öne çıkanlar / iletişim / CTA */}
-        <aside className="space-y-4">
-          <div className="k-card">
-            <div className="k-badge">
-              <i className="fa-solid fa-sparkles" /> Öne Çıkanlar
-            </div>
-            <ul className="k-list-check mt-3">
-              <li>20–30 sn içinde sonuç</li>
-              <li>Çerezsiz form akışı</li>
-              <li>Paylaşılabilir bağlantı</li>
-              <li>Mobil uyumlu arayüz</li>
-            </ul>
+        {/* Görsel placeholder */}
+        <div className="k-card flex items-center justify-center">
+          {/* Görseli eklemek için:
+              <img src="/resim/hakkimizda-3.jpg" alt="Yol haritası görseli"
+                   className="h-full w-full rounded-xl object-cover" />
+          */}
+          <div className="h-60 w-full rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 sm:h-72 lg:h-80 flex items-center justify-center text-stone-400">
+            Görsel alanı — 1600×1000 önerilir
           </div>
+        </div>
+      </div>
 
-          <div className="k-card">
-            <div className="k-badge">
-              <i className="fa-solid fa-headset" /> Bize Ulaşın
-            </div>
-            <ul className="mt-3 space-y-2 text-sm text-stone-700">
-              <li>
-                <a className="hover:underline" href="/iletisim">
-                  İletişim Formu
-                </a>
-              </li>
-              <li>
-                <a className="hover:underline" href="mailto:info@kahvefalin.com">
-                  info@kahvefalin.com
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <a href="/#form" className="k-card block text-center transition hover:shadow-lg">
-            <div className="text-sm text-stone-600">Hazır mısın?</div>
-            <div className="mt-1 font-semibold">Falını hemen gönder</div>
-          </a>
-        </aside>
+      {/* CTA */}
+      <div className="mx-auto mt-12 max-w-3xl">
+        <a href="/#form" className="k-card block text-center transition hover:shadow-lg">
+          <div className="text-sm text-stone-600">Hazır mısın?</div>
+          <div className="mt-1 font-semibold">Falını hemen gönder</div>
+        </a>
       </div>
 
       {/* JSON-LD */}
