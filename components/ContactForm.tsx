@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 
 export default function ContactForm() {
@@ -31,8 +30,8 @@ export default function ContactForm() {
     });
 
     const json = await res.json().catch(() => ({}));
-
     setSubmitting(false);
+
     if (res.ok && json?.ok) {
       setOk(true);
       e.currentTarget.reset();
@@ -45,7 +44,7 @@ export default function ContactForm() {
   return (
     <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-stone-200 bg-white p-6 shadow-md md:p-8">
       <form onSubmit={onSubmit} className="space-y-4">
-        {/* Honeypot (gizli alan) */}
+        {/* Honeypot */}
         <input type="text" name="hp" autoComplete="off" className="hidden" tabIndex={-1} />
 
         <div className="grid gap-4 sm:grid-cols-2">
