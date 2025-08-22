@@ -4,7 +4,7 @@ import { SITE } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Hakkımızda",
   description:
-    "Sanal Kahve Falı; modern arayüz ve gizlilik odaklı akışla sanal kahve falı ve online kahve falı deneyimini hızlı ve erişilebilir kılar.",
+    "Sanal Kahve Falı, kahve falı geleneğini dijital dünyaya taşıyor. Amacımız, kullanıcılarımıza keyifli, hızlı ve güvenilir bir fal deneyimi sunmak.",
   alternates: { canonical: "/hakkimizda" },
   openGraph: {
     url: "/hakkimizda",
@@ -34,7 +34,7 @@ export default function Page() {
       sameAs: [SITE.url],
     },
     description:
-      "Sanal Kahve Falı; gizlilik ve hız odaklı çevrimiçi kahve falı deneyimi sunar. Fotoğraflarını yükle, adım adım ilerle, sonucu paylaş.",
+      "Sanal Kahve Falı, kahve falı geleneğini dijital dünyaya taşıyor. Amacımız, kullanıcılarımıza keyifli, hızlı ve güvenilir bir fal deneyimi sunmak.",
   };
 
   return (
