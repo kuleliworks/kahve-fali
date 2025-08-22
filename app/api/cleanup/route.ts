@@ -7,13 +7,14 @@ export async function GET() {
   const days = Number(process.env.RETENTION_DAYS || 30);
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
-  // skor (timestamp) 0..cutoff arası tüm id'leri al
-  const oldIds = await redis.zrange<string[]>("fal:index", 0, cutoff, { byScore: true });
-  let deleted = 0;
+  // Skora göre 0..cutoff arası id'ler (en eski)
+  const idsUnknown = await redis.zrange("fal:index", 0, cutoff, { byScore: true });
+  const oldIds: string[] = (Array.isArray(idsUnknown) ? idsUnknown : []).map((v) => String(v));
 
+  let deleted = 0;
   if (oldIds.length) {
-    await redis.zrem("fal:index", ...oldIds);
     const p = redis.pipeline();
+    p.zrem("fal:index", ...oldIds);
     oldIds.forEach((id) => p.del(`fal:item:${id}`));
     await p.exec();
     deleted = oldIds.length;
