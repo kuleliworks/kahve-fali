@@ -29,6 +29,11 @@ export const metadata: Metadata = {
     description: SITE.description,
     images: [`${SITE.url}/resim/sanal-kahve-fali-x2.png`],
   },
+    icons: {
+    icon: "/resim/favicon.png",       // tarayıcı favicon
+    shortcut: "/resim/favicon.png",   // eski tarayıcılar
+    apple: "/resim/favicon.png",      // iOS ana ekrana ekleme
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
