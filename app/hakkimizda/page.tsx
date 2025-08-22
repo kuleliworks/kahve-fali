@@ -1,8 +1,9 @@
+// app/hakkimizda/page.tsx
 import type { Metadata } from "next";
 import { SITE } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Hakkımızda",
+  title: "Hakkımızda", // sadece sayfa adı; marka şablondan gelir
   description:
     "Sanal Kahve Falı, kahve falı geleneğini dijital dünyaya taşıyor. Amacımız, kullanıcılarımıza keyifli, hızlı ve güvenilir bir fal deneyimi sunmak.",
   alternates: { canonical: "/hakkimizda" },
@@ -28,7 +29,7 @@ export default function Page() {
     url: `${SITE.url}/hakkimizda`,
     mainEntity: {
       "@type": "Organization",
-      name: SITE.name,             // "Sanal Kahve Falı"
+      name: SITE.name, // "Sanal Kahve Falı"
       url: SITE.url,
       logo: `${SITE.url}/resim/sanal-kahve-fali-x2.png`,
       sameAs: [SITE.url],
@@ -140,7 +141,10 @@ export default function Page() {
       </div>
 
       {/* JSON-LD */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     </section>
   );
 }
