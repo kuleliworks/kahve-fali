@@ -1,125 +1,121 @@
 // app/panel/blog/page.tsx
-"use client";
-import { useEffect, useMemo, useState } from "react";
-import BlogImageUpload from "@/components/BlogImageUpload";
+import Link from "next/link";
+import { redis } from "@/lib/redis";
 
+export const dynamic = "force-dynamic";
 
 type Post = {
-  title: string; slug: string; description?: string; image?: string; content?: string; status: "draft" | "pub";
-  createdAt?: string; updatedAt?: string;
+  title: string;
+  slug: string;
+  description?: string;
+  image?: string;
+  content?: string;
+  createdAt?: string; // ms
+  updatedAt?: string; // ms
+  status?: "pub" | "draft";
 };
 
-export default function BlogAdminPage() {
-  const [key, setKey] = useState<string>("");
-  const [list, setList] = useState<Post[]>([]);
-  const [editing, setEditing] = useState<Post | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+async function getPosts(): Promise<Post[]> {
+  // Son eklenenden başla (rev: true)
+  const slugs = (await redis.zrange("blog:index", 0, -1, { rev: true })) as unknown as string[];
+  const rows = await Promise.all(
+    (slugs || []).map(async (slug) => {
+      const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
+      if (!it || !it.title) return null;
+      return {
+        title: it.title,
+        slug: it.slug,
+        description: it.description,
+        image: it.image,
+        content: it.content,
+        createdAt: it.createdAt,
+        updatedAt: it.updatedAt,
+        status: (it.status === "draft" ? "draft" : "pub") as "pub" | "draft",
+      } as Post;
+    })
+  );
 
-  useEffect(() => {
-    const k = sessionStorage.getItem("panelKey") || "";
-    setKey(k);
-    fetchList();
-  }, []);
+  return rows.filter((p): p is Post => !!p);
+}
 
-  async function fetchList() {
-    const res = await fetch("/api/blog/list", { cache: "no-store" });
-    const data = await res.json().catch(() => ({}));
-    setList(Array.isArray(data?.items) ? data.items : []);
-  }
-
-  function startNew() {
-    setEditing({ title: "", slug: "", description: "", image: "", content: "", status: "draft" });
-  }
-
-  async function save() {
-    if (!editing) return;
-    setLoading(true); setMsg(null);
-    const res = await fetch("/api/blog/upsert", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-panel-key": key || "" },
-      body: JSON.stringify(editing),
-    });
-    const j = await res.json().catch(() => ({}));
-    setLoading(false);
-    if (!res.ok) { setMsg(j?.error || "Kaydetmede hata"); return; }
-    setMsg("Kaydedildi");
-    setEditing(null);
-    sessionStorage.setItem("panelKey", key || "");
-    await fetchList();
-  }
-
-  async function del(slug: string) {
-    if (!confirm("Silinsin mi?")) return;
-    const res = await fetch(`/api/blog/delete/${encodeURIComponent(slug)}`, {
-      method: "POST",
-      headers: { "x-panel-key": key || "" },
-    });
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok) { alert(j?.error || "Silmede hata"); return; }
-    await fetchList();
-  }
+export default async function Page() {
+  const posts = await getPosts();
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-4 flex items-center gap-2">
-        <input className="input" placeholder="Panel Key" value={key} onChange={(e) => setKey(e.target.value)} />
-        <button className="btn btn-primary" onClick={() => sessionStorage.setItem("panelKey", key || "")}>Anahtarı Kaydet</button>
-        <button className="btn btn-primary" onClick={startNew}>Yeni Yazı</button>
+    <section className="mx-auto max-w-6xl px-4 py-10">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Blog Yönetimi</h1>
+        <Link href="/panel/blog/yeni" className="btn btn-primary">
+          + Yeni Yazı
+        </Link>
       </div>
 
-      {editing && (
-        <div className="k-card mb-6">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input className="input" placeholder="Başlık" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
-            <input className="input" placeholder="Slug (boş bırakırsan otomatik)"
-              value={editing.slug || ""} onChange={(e) => setEditing({ ...editing, slug: e.target.value })} />
-const [image, setImage] = useState<string>("");
-
-<BlogImageUpload value={image} onChange={setImage} />
-
-            <input className="input sm:col-span-2" placeholder="Kısa açıklama (description)"
-              value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
-            <select className="input" value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value as any })}>
-          <option value="draft">Taslak</option>
-<option value="pub">Yayınla</option>
-</select>
-</div>
-
-<div className="mt-3">
-  <textarea
-    className="input h-64"
-    placeholder="İçerik (düz yazı/markdown)"
-    value={editing.content || ""}
-    onChange={(e) => setEditing({ ...editing, content: e.target.value })}
-  />
-</div>
-
-          <div className="mt-3 flex items-center gap-2">
-            <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? "Kaydediliyor..." : "Kaydet"}</button>
-            <button className="btn btn-ghost" onClick={() => setEditing(null)}>Vazgeç</button>
-            {msg && <span className="text-sm text-stone-600">{msg}</span>}
-          </div>
-        </div>
-      )}
-
-      <div className="k-card">
-        <div className="mb-3 font-semibold">Yazılar</div>
-        <div className="divide-y divide-stone-200">
-          {list.map((p) => (
-            <div key={p.slug} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="font-medium">{p.title} {p.status !== "pub" && <span className="ml-2 text-xs text-stone-500">(taslak)</span>}</div>
-                <div className="text-xs text-stone-500">{p.slug}</div>
-              </div>
-              <div className="flex gap-2">
-                <button className="btn btn-ghost" onClick={() => setEditing(p)}>Düzenle</button>
-                <button className="btn btn-ghost" onClick={() => del(p.slug)}>Sil</button>
-                {p.status === "pub" && <a className="btn btn-primary" href={`/blog/${p.slug}`} target="_blank" rel="noreferrer">Görüntüle</a>}
-              </div>
-            </div>
-          ))}
-          {list.length === 0 && <div className="py-6 text-sm text-stone-500">Henüz yazı yok.</div>}
+      <div className="k-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-stone-50 text-stone-600">
+              <tr>
+                <th className="px-4 py-3">Başlık</th>
+                <th className="px-4 py-3">Durum</th>
+                <th className="px-4 py-3">Yayın</th>
+                <th className="px-4 py-3">Slug</th>
+                <th className="px-4 py-3">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {posts.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-stone-500">
+                    Henüz yazı yok. “Yeni Yazı” ile ekleyebilirsin.
+                  </td>
+                </tr>
+              ) : (
+                posts.map((p) => {
+                  const pubDate = p.createdAt ? new Date(Number(p.createdAt)) : null;
+                  return (
+                    <tr key={p.slug} className="border-t">
+                      <td className="px-4 py-3 font-medium">{p.title}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
+                            p.status === "pub"
+                              ? "bg-green-50 text-green-700 ring-1 ring-green-200"
+                              : "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200"
+                          }`}
+                        >
+                          {p.status === "pub" ? "Yayında" : "Taslak"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {pubDate ? pubDate.toLocaleDateString("tr-TR") : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-stone-500">{p.slug}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/blog/${p.slug}`}
+                            className="btn btn-ghost"
+                            prefetch={false}
+                            target="_blank"
+                          >
+                            Görüntüle
+                          </Link>
+                          {/* İleride düzenleme/del ekleyebiliriz */}
+                          <Link
+                            href={`/panel/blog/yeni?prefill=${encodeURIComponent(p.slug)}`}
+                            className="btn btn-ghost"
+                            prefetch={false}
+                          >
+                            Kopyala & Yeni
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
