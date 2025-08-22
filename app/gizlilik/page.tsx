@@ -1,10 +1,28 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Gizlilik Politikası — Sanal Kahve Falı",
+  // SADECE sayfa adı; markayı elle ekleme!
+  title: "Gizlilik Politikası",
   description:
     "Sanal Kahve Falı (kahvefalin.com) gizlilik politikası: toplanan veriler, işleme amaçları, saklama süreleri, aktarım ve haklar.",
   alternates: { canonical: "/gizlilik" },
+
+  // Sayfa bazlı OG: root’taki genel OG’yi override eder
+  openGraph: {
+    url: "/gizlilik",
+    title: "Gizlilik Politikası",
+    description:
+      "Sanal Kahve Falı (kahvefalin.com) gizlilik politikası: toplanan veriler, işleme amaçları, saklama süreleri, aktarım ve haklar.",
+    images: [{ url: "/resim/sanal-kahve-fali-x2.png" }],
+    type: "article",
+  },
+  twitter: {
+    title: "Gizlilik Politikası",
+    description:
+      "Sanal Kahve Falı (kahvefalin.com) gizlilik politikası: toplanan veriler, işleme amaçları, saklama süreleri, aktarım ve haklar.",
+    images: ["/resim/sanal-kahve-fali-x2.png"],
+    card: "summary_large_image",
+  },
 };
 
 export default function Page() {
