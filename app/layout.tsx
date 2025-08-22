@@ -9,8 +9,8 @@ import Nav from "@/components/Nav";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: SITE.title,              // "Sanal Kahve Falı"
-    template: `%s | ${SITE.name}`,    // <<--- ŞABLON
+    default: SITE.title,           // "Sanal Kahve Falı"
+    template: `%s | ${SITE.name}`, // şablon burada
   },
   description: SITE.description,
   alternates: { canonical: "/" },
@@ -29,16 +29,10 @@ export const metadata: Metadata = {
     description: SITE.description,
     images: [`${SITE.url}/resim/sanal-kahve-fali-x2.png`],
   },
-  icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
-  },
-  robots: { index: true, follow: true },
-  themeColor: "#ffffff",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // JSON-LD’leri Script ile ekliyoruz (head’i override etmeden)
   const jsonLdOrg = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -46,7 +40,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     url: SITE.url,
     logo: `${SITE.url}/resim/sanal-kahve-fali-x2.png`,
   };
-
   const jsonLdSite = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -54,38 +47,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     url: SITE.url,
     potentialAction: {
       "@type": "SearchAction",
-      target: `${SITE.url}/ara?q={query}`, // istersen /blog araması bırakılabilir
-      "query-input": "required name=query",
+      target: `${SITE.url}/blog?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
     },
   };
 
   return (
     <html lang="tr">
-      <head>
-        {/* Font Awesome (ikonlar) */}
+      {/* DİKKAT: Burada <head> içine hiçbir manuel içerik koymuyoruz */}
+      <head />
+      <body>
+        {/* Font Awesome CDN (istersen Footer/Nav içinde de linkleyebilirsin) */}
         <link
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
         />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-        {/* JSON-LD: Organization */}
-        <Script
-          id="ld-org"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrg) }}
-        />
-        {/* JSON-LD: WebSite (+ SearchAction) */}
-        <Script
-          id="ld-website"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSite) }}
-        />
-      </head>
-      <body>
         <Nav />
         <main>{children}</main>
         <Footer />
+
+        {/* JSON-LD */}
+        <Script
+          id="jsonld-org"
+          type="application/ld+json"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdOrg) }}
+        />
+        <Script
+          id="jsonld-site"
+          type="application/ld+json"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSite) }}
+        />
       </body>
     </html>
   );
