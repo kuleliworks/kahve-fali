@@ -1,10 +1,22 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "KVKK Aydınlatma Metni — Sanal Kahve Falı",
-  description:
-    "KVKK Aydınlatma: veri sorumlusu, işleme amaçları, hukuki sebepler, aktarım, saklama ve haklar (kahvefalin.com).",
+  title: "KVKK Aydınlatma Metni",
+  description: "Kişisel verilerin korunmasına ilişkin aydınlatma metni.",
   alternates: { canonical: "/kvkk" },
+  openGraph: {
+    url: "/kvkk",
+    title: "KVKK Aydınlatma Metni",
+    description: "Kişisel verilerin korunmasına ilişkin aydınlatma metni.",
+    images: [{ url: "/resim/sanal-kahve-fali-x2.png" }],
+    type: "article",
+  },
+  twitter: {
+    title: "KVKK Aydınlatma Metni",
+    description: "Kişisel verilerin korunmasına ilişkin aydınlatma metni.",
+    images: ["/resim/sanal-kahve-fali-x2.png"],
+    card: "summary_large_image",
+  },
 };
 
 export default function Page() {
