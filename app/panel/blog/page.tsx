@@ -81,14 +81,20 @@ const [image, setImage] = useState<string>("");
             <input className="input sm:col-span-2" placeholder="Kısa açıklama (description)"
               value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
             <select className="input" value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value as any })}>
-              <option value="draft">Taslak</option>
-              <option value="pub">Yayınla</option>
-            </select>
-          </div>
-          <div className="mt-3">
-            <textarea className="input h-64" placeholder="İçerik (düz yazı/markdown)"
-              value={editing.content || ""} onChange={(e) => setEditing({ ...editing, content: e.target.value })} />
-          </div>
+             <option value="draft">Taslak</option>
+<option value="pub">Yayınla</option>
+</select>
+</div>
+
+<div className="mt-3">
+  <textarea
+    className="input h-64"
+    placeholder="İçerik (düz yazı/markdown)"
+    value={editing.content || ""}
+    onChange={(e) => setEditing({ ...editing, content: e.target.value })}
+  />
+</div>
+
           <div className="mt-3 flex items-center gap-2">
             <button className="btn btn-primary" onClick={save} disabled={loading}>{loading ? "Kaydediliyor..." : "Kaydet"}</button>
             <button className="btn btn-ghost" onClick={() => setEditing(null)}>Vazgeç</button>
