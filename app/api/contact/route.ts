@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
+// ÖNEMLİ: Nodemailer için Node runtime
+export const runtime = "nodejs";
+// Önbelleği kapat (form her zaman canlı işlensin)
+export const dynamic = "force-dynamic";
+
 type Body = {
   name?: string;
   email?: string;
@@ -14,10 +19,8 @@ export async function POST(req: Request) {
   try {
     const data = (await req.json()) as Body;
 
-    // Honeypot: bot doldurursa görmezden gel (200 dönüp hiçbir şey yapma)
-    if (data.hp) {
-      return NextResponse.json({ ok: true });
-    }
+    // Honeypot: bot doldurursa hiç işlem yapmadan OK dön
+    if (data.hp) return NextResponse.json({ ok: true });
 
     // Basit doğrulama
     const name = (data.name || "").trim();
@@ -36,7 +39,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Geçerli bir e-posta girin." }, { status: 400 });
     }
 
-    // SMTP konfigürasyonu ortam değişkenlerinden
+    // SMTP ENV
     const host = process.env.SMTP_HOST;
     const port = Number(process.env.SMTP_PORT || 587);
     const user = process.env.SMTP_USER;
@@ -50,12 +53,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: { user, pass },
-    });
+    const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
 
     const to = process.env.MAIL_TO || user;
     const from = process.env.MAIL_FROM || `Kahvefalin İletişim <no-reply@kahvefalin.com>`;
@@ -80,15 +78,11 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err) {
     return NextResponse.json({ ok: false, error: "Beklenmeyen bir hata oluştu." }, { status: 500 });
   }
 }
 
-// Basit HTML kaçış fonksiyonu
 function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
