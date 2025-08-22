@@ -3,7 +3,7 @@ export const SITE = {
   name: "Sanal Kahve Falı",
   title: "Sanal Kahve Falı",
   description:
-    "Sanal kahve falı: Fincan fotoğraflarını yükle, adım adım ilerle ve modern arayüzde fal sonucunu hemen gör. Hızlı, güvenli ve çerezsiz.",
+    "Sanal kahve falı ile geleceğini keşfet! Fotoğraf yükle, anında yorum al. Eğlenceli, güvenilir ve hızlı kahve falı deneyimini yaşa.",
   url: "https://kahvefalin.com", // WWW kullanacaksan: "https://www.kahvefalin.com"
-  twitter: "", // varsa @kullanici
+  twitter: "@kahvefalincom", // varsa @kullanici
 };
