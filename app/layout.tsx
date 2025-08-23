@@ -63,10 +63,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head />
       <body>
         {/* Font Awesome CDN (istersen Footer/Nav içinde de linkleyebilirsin) */}
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-        />
+<link
+  rel="preload"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  as="style"
+/>
+<link
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  rel="stylesheet"
+  media="print"
+  onLoad="this.media='all'"
+/>
+<noscript>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+</noscript>
+
 
         <Nav />
         <main>{children}</main>
