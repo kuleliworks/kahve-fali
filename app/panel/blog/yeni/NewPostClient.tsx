@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import BlogImageUpload from "@/components/BlogImageUpload";
+
 
 type Draft = {
   title?: string;
@@ -120,11 +122,31 @@ export default function NewPostClient() {
             value={d.description || ""} onChange={(e) => setD({ ...d, description: e.target.value })} />
         </div>
 
-        <div>
-          <label className="text-sm font-medium">Öne çıkan görsel URL</label>
-          <input className="input mt-1" placeholder="https://..."
-            value={d.image || ""} onChange={(e) => setD({ ...d, image: e.target.value })} />
-        </div>
+<div>
+  <label className="text-sm font-medium">Öne çıkan görsel</label>
+  <div className="mt-1">
+    <BlogImageUpload
+      value={d.image}
+      onDone={(url) => setD({ ...d, image: url })}
+    />
+  </div>
+  {d.image && (
+    <div className="mt-2 flex items-center gap-2">
+      <input className="input flex-1" value={d.image} readOnly />
+      <button
+        type="button"
+        className="btn btn-ghost"
+        onClick={() => setD({ ...d, image: undefined })}
+      >
+        Kaldır
+      </button>
+    </div>
+  )}
+  <p className="mt-1 text-xs text-stone-500">
+    Desteklenen: JPG/PNG/WebP, ~12MB&apos;a kadar. Yükledikten sonra URL otomatik eklenir.
+  </p>
+</div>
+
 
         <div>
           <label className="text-sm font-medium">İçerik (HTML/Markdown)</label>
