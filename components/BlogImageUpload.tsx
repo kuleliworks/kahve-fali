@@ -17,8 +17,8 @@ export default function BlogImageUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // İsteğe bağlı: Vercel fonksiyon gövde limiti için 4 MB altı uyarı
-    const MAX_CLIENT = 4 * 1024 * 1024; // 4MB – güvenli eşik
+    // Vercel serverless için güvenli eşik (büyük dosya 413 verebilir)
+    const MAX_CLIENT = 4 * 1024 * 1024; // 4MB
     if (file.size > MAX_CLIENT) {
       setErr("Dosya çok büyük (4MB üstü). Lütfen daha küçük bir görsel yükleyin.");
       return;
@@ -30,20 +30,19 @@ export default function BlogImageUpload({
     try {
       const res = await fetch("/api/blog/upload", { method: "POST", body: fd });
 
-      // Güvenli ayrıştırma: önce text al, sonra içerik tipine göre JSON parse et
       const ct = res.headers.get("content-type") || "";
-      const text = await res.text();
+      const text = await res.text(); // önce düz metin al
       let json: any = null;
+
       if (ct.includes("application/json")) {
         try {
-          json = text ? JSON.parse(text) : null;
+          json = text ? JSON.parse(text) : null; // boşsa parse etme
         } catch {
-          // JSON değilse json null kalır
+          // JSON değilse json null kalsın
         }
       }
 
       if (!res.ok) {
-        // JSON hata mesajı varsa onu göster; yoksa text veya HTTP kodunu göster
         const msg = (json && json.error) || text || `Yükleme hatası (HTTP ${res.status})`;
         throw new Error(msg);
       }
