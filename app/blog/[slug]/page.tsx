@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { redis } from "@/lib/redis";
 import { SITE } from "@/lib/seo";
 
-export const revalidate = 600; // 10 dk cache
+export const revalidate = 600; // 10 dk
 
 /** Yardımcılar */
 function absImg(src?: string) {
@@ -127,27 +127,42 @@ export default async function Page({ params }: any) {
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-10" style={{ contentVisibility: "auto" }}>
-      {/* Breadcrumb (görsel) */}
-      <nav aria-label="Breadcrumb" className="mb-4 text-sm text-stone-600">
-        <a href="/" className="hover:underline">Ana Sayfa</a>
-        <span className="mx-2 opacity-60">/</span>
-        <a href="/blog" className="hover:underline">Blog</a>
-        <span className="mx-2 opacity-60">/</span>
-        <span className="line-clamp-1">{post.title}</span>
+      {/* Breadcrumb — tek satır, kesmeli */}
+      <nav aria-label="Breadcrumb" className="mb-6 overflow-hidden">
+        <ol className="flex items-center gap-2 text-sm text-stone-600 whitespace-nowrap overflow-hidden">
+          <li>
+            <a href="/" className="hover:underline">Ana Sayfa</a>
+          </li>
+          <li className="opacity-60">/</li>
+          <li>
+            <a href="/blog" className="hover:underline">Blog</a>
+          </li>
+          <li className="opacity-60">/</li>
+          <li
+            className="truncate max-w-[60vw] md:max-w-[70%]"
+            aria-current="page"
+            title={post.title}
+          >
+            {post.title}
+          </li>
+        </ol>
       </nav>
 
       {/* Kart gövdeli makale */}
       <div className="k-card p-6 md:p-8">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{post.title}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-stone-600">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">{post.title}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
             {dateStr && (
-              <time dateTime={publishedISO} title={dateStr}>
-                {dateStr}
-              </time>
+              <span className="inline-flex items-center rounded-full bg-stone-100 px-3 py-1 text-stone-700">
+                <i className="fa-regular fa-calendar me-2" />
+                <time dateTime={publishedISO} title={dateStr}>{dateStr}</time>
+              </span>
             )}
-            <span>·</span>
-            <span>{rtime} dk okuma</span>
+            <span className="inline-flex items-center rounded-full bg-stone-100 px-3 py-1 text-stone-700">
+              <i className="fa-regular fa-clock me-2" />
+              {rtime} dk okuma
+            </span>
           </div>
         </header>
 
@@ -170,7 +185,7 @@ export default async function Page({ params }: any) {
         />
       </div>
 
-      {/* Benzer Yazılar — 3 sütun, kartlı */}
+      {/* Benzer Yazılar — 3 sütun */}
       {related.length > 0 && (
         <div className="mt-10">
           <h2 className="text-xl font-semibold">Benzer yazılar</h2>
