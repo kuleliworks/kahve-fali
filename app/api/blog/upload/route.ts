@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 
-export const runtime = "edge"; // hızlı ve düşük gecikme
+export const runtime = "edge";          // Edge: File/Blob doğrudan desteklenir
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
@@ -20,26 +20,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Sadece görsel yükleyin" }, { status: 400 });
   }
 
-  // Boyut limiti (ör: 12 MB). İstersen artır: 20 * 1024 * 1024
+  // Boyut limiti (dilersen artır): 12MB
   const MAX = 12 * 1024 * 1024;
   if (file.size > MAX) {
     return NextResponse.json({ ok: false, error: "Görsel çok büyük (12MB+)" }, { status: 413 });
+    // İstersen burada otomatik sıkıştırma/yeniden boyutlandırma akışı planlayabiliriz
   }
 
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const key = `blog/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  const ab = await file.arrayBuffer();
-  const { url } = await put(key, new Uint8Array(ab), {
+  // ⚠️ Edge'de DOĞRUDAN File/Blob veriyoruz (Uint8Array'a ÇEVİRME!)
+  const { url } = await put(key, file, {
     access: "public",
     contentType: file.type,
-    token: process.env.BLOB_READ_WRITE_TOKEN, // Vercel env'de ayarlı olmalı
+    token: process.env.BLOB_READ_WRITE_TOKEN, // Vercel env'de tanımlı olmalı
   });
 
   return NextResponse.json({ ok: true, url });
 }
 
 export async function GET() {
-  // Bu endpoint sadece POST kabul eder
+  // Sadece POST kabul edilsin
   return NextResponse.json({ ok: false, error: "Method Not Allowed" }, { status: 405 });
 }
