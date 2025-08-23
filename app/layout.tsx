@@ -62,26 +62,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       {/* DİKKAT: Burada <head> içine hiçbir manuel içerik koymuyoruz */}
       <head />
       <body>
-   {/* Font Awesome (ikonlar için) – non-blocking yükleme */}
-<link
-  rel="preload"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-  as="style"
-/>
+      {/* Font Awesome (ikonlar) */}
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="" />
 <link
   href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-  rel="stylesheet"
-  media="print"
-  onLoad={(e) => {
-    (e.currentTarget as HTMLLinkElement).media = "all";
-  }}
-/>
-<noscript
-  dangerouslySetInnerHTML={{
-    __html:
-      '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />',
-  }}
-/>
+  rel="stylesheet"/>
 
 
         <Nav />
