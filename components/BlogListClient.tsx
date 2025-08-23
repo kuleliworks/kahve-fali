@@ -35,7 +35,7 @@ export default function BlogListClient({
       if (Array.isArray(json.items)) setItems((prev) => [...prev, ...json.items]);
       setCursor(json.nextCursor ?? null);
     } catch {
-      // sessizce geç
+      // sessiz
     } finally {
       setLoading(false);
     }
@@ -43,7 +43,6 @@ export default function BlogListClient({
 
   return (
     <div className="mt-10">
-      {/* Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((p, idx) => (
           <article key={p.slug} className="k-card overflow-hidden">
@@ -56,9 +55,10 @@ export default function BlogListClient({
                     fill
                     className="object-cover"
                     sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
-                    // İlk kartı öncelikli yaparsan LCP hızlanır:
                     priority={idx === 0}
                     loading={idx === 0 ? "eager" : "lazy"}
+                    /** HIZLI PATCH: domain izinlerine takılmadan göster */
+                    unoptimized
                   />
                 </div>
               ) : null}
@@ -75,7 +75,6 @@ export default function BlogListClient({
         ))}
       </div>
 
-      {/* Load more */}
       {cursor !== null && (
         <div className="mt-8 text-center">
           <button
