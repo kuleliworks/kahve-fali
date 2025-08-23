@@ -3,8 +3,7 @@ import { redis } from "@/lib/redis";
 import BlogListClient from "@/components/BlogListClient";
 import { SITE } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 300; // 5 dk'da bir yeniden oluştur
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -23,7 +22,7 @@ export const metadata: Metadata = {
   },
 };
 
-type BlogCardPost = {
+export type BlogCardPost = {
   slug: string;
   title: string;
   description?: string;
@@ -32,7 +31,6 @@ type BlogCardPost = {
 };
 
 async function getInitial(limit = 9): Promise<{ items: BlogCardPost[]; nextCursor: number | null }> {
-  // DESC: +inf → -inf
   const slugs = (await redis.zrange("blog:index", "+inf" as any, "-inf", {
     byScore: true,
     rev: true,
@@ -78,7 +76,7 @@ export default async function Page() {
   };
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-12">
+    <section className="mx-auto max-w-6xl px-4 py-12" style={{ contentVisibility: "auto" }}>
       <div className="mx-auto max-w-3xl text-center">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Blog</h1>
         <p className="mt-3 text-stone-700">
@@ -92,6 +90,3 @@ export default async function Page() {
     </section>
   );
 }
-
-
-
