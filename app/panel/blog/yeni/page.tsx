@@ -35,30 +35,44 @@ export default function Page() {
 async function onSubmit(e: React.FormEvent) {
   e.preventDefault();
   setErr(null);
+
   const finalSlug = slug || slugify(title);
   if (!title || !finalSlug) {
     setErr("Başlık gerekli.");
     return;
   }
+
   setBusy(true);
   try {
     const res = await fetch("/api/blog/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // ⬇️ Burada image da gidiyor
       body: JSON.stringify({
         title,
         slug: finalSlug,
         description,
-        image,          // <— ÖNEMLİ: yüklenen görselin URL’i
-        content,        // HTML içerik
-        status,         // "pub" | "draft"
+        image,      // BlogImageUpload ile gelen URL
+        content,    // HTML içerik
+        status,     // "pub" | "draft"
       }),
     });
 
-    const json = await res.json();
-    if (!res.ok) throw new Error(json?.error || "Kaydetme hatası");
-    r.push(`/blog/${json.slug || finalSlug}`);
+    // --- Güvenli ayrıştırma ---
+    const ct = res.headers.get("content-type") || "";
+    const text = await res.text(); // önce düz metni al
+    let json: any = null;
+    if (ct.includes("application/json")) {
+      try { json = text ? JSON.parse(text) : null; } catch {}
+    }
+
+    if (!res.ok) {
+      const msg = (json && json.error) || text || `Kaydetme hatası (HTTP ${res.status})`;
+      throw new Error(msg);
+    }
+
+    const nextSlug = json?.slug || finalSlug;
+    // başarılı → yazıyı aç
+    r.push(`/blog/${nextSlug}`);
   } catch (e: any) {
     setErr(e?.message || "Bilinmeyen hata");
   } finally {
