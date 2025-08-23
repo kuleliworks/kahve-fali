@@ -19,7 +19,6 @@ type PostKV = {
   updatedAt?: string;   // ms
 };
 
-/* Güvenli HTML kuralları (tipi 'any' tutuyoruz ki @types uyumsuzluğu çıkaramasın) */
 const CLEAN_OPTS: any = {
   allowedTags: [
     "p","h1","h2","h3","h4","strong","em","u","s","a","ul","ol","li",
@@ -52,7 +51,6 @@ const CLEAN_OPTS: any = {
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
-
 function summarize(html: string, fallback = ""): string {
   const text = stripHtml(html);
   return text ? (text.length > 160 ? text.slice(0, 157) + "…" : text) : fallback;
@@ -64,7 +62,7 @@ async function getPost(slug: string): Promise<Required<PostKV> | null> {
   if (it.status && it.status !== "pub") return null;
   return {
     title: it.title || slug,
-    slug: slug,
+    slug,
     description: it.description || "",
     image: it.image || "",
     content: it.content || "",
@@ -74,7 +72,7 @@ async function getPost(slug: string): Promise<Required<PostKV> | null> {
   };
 }
 
-/* Benzer yazılar (şimdilik en yeni 30 içinden ilk 3) */
+/* Benzer yazılar */
 async function getRelated(slug: string, take = 3): Promise<BlogCardPost[]> {
   const slugs = (await redis.zrange("blog:index", "+inf" as any, "-inf", {
     byScore: true,
@@ -100,12 +98,12 @@ async function getRelated(slug: string, take = 3): Promise<BlogCardPost[]> {
   return out;
 }
 
-/* Sayfa bazlı metadata */
+/* === Burada değişti: params Promise === */
 export async function generateMetadata(
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
-  const slug = decodeURIComponent(params.slug);
-  const post = await getPost(slug);
+  const { slug } = await params;
+  const post = await getPost(decodeURIComponent(slug));
   if (!post) return { title: "Yazı bulunamadı" };
 
   const title = post.title; // Layout template: "%s | Sanal Kahve Falı"
@@ -135,9 +133,13 @@ export async function generateMetadata(
   };
 }
 
-export default async function Page({ params }: { params: { slug: string } }) {
-  const slug = decodeURIComponent(params.slug);
-  const post = await getPost(slug);
+/* === Burada da değişti: params Promise === */
+export default async function Page(
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;
+  const decoded = decodeURIComponent(slug);
+  const post = await getPost(decoded);
   if (!post) return notFound();
 
   const created = Number(post.createdAt);
@@ -159,17 +161,15 @@ export default async function Page({ params }: { params: { slug: string } }) {
     dateModified: isNaN(updated) ? undefined : new Date(updated).toISOString()
   };
 
-  const related = await getRelated(slug, 3);
+  const related = await getRelated(decoded, 3);
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-10 lg:max-w-4xl">
-      {/* Başlık */}
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{post.title}</h1>
         <div className="mt-2 text-sm text-stone-600">{dateStr}</div>
       </header>
 
-      {/* Öne Görsel */}
       {post.image && (
         <div className="mb-6 overflow-hidden rounded-2xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -182,12 +182,10 @@ export default async function Page({ params }: { params: { slug: string } }) {
         </div>
       )}
 
-      {/* İçerik */}
       <article className="k-card prose-article p-6">
         <div dangerouslySetInnerHTML={{ __html: clean }} />
       </article>
 
-      {/* Paylaşım butonları */}
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <a
           className="btn btn-ghost"
@@ -212,7 +210,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         </a>
       </div>
 
-      {/* Benzer Yazılar */}
       {related.length > 0 && (
         <section className="mt-12">
           <h2 className="text-2xl font-semibold tracking-tight">Benzer yazılar</h2>
@@ -222,7 +219,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         </section>
       )}
 
-      {/* JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdArticle) }}
