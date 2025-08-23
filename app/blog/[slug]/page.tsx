@@ -19,7 +19,8 @@ type PostKV = {
   updatedAt?: string;   // ms
 };
 
-const CLEAN_OPTS: any = {
+/** sanitize-html ayarları (simpleTransform KULLANMADAN) */
+const CLEAN_OPTS: sanitizeHtml.IOptions = {
   allowedTags: [
     "p","h1","h2","h3","h4","strong","em","u","s","a","ul","ol","li",
     "blockquote","code","pre","hr","br","img","figure","figcaption",
@@ -32,8 +33,21 @@ const CLEAN_OPTS: any = {
   },
   allowedSchemes: ["http","https","mailto"],
   transformTags: {
-    a: sanitizeHtml.simpleTransform("a", { rel: "nofollow noopener", target: "_blank" }),
-    img: (tagName: string, attribs: Record<string, string>) => {
+    a: (_tag, attribs) => {
+      // href dışındaki öznitelikleri güvenli değerlere sabitle
+      const href = attribs.href || "#";
+      return {
+        tagName: "a",
+        attribs: {
+          href,
+          title: attribs.title || "",
+          rel: "nofollow noopener",
+          target: "_blank",
+          class: (attribs.class || "")
+        }
+      };
+    },
+    img: (_tag, attribs) => {
       const src = attribs.src || "";
       return {
         tagName: "img",
@@ -72,12 +86,12 @@ async function getPost(slug: string): Promise<Required<PostKV> | null> {
   };
 }
 
-/* Benzer yazılar */
 async function getRelated(slug: string, take = 3): Promise<BlogCardPost[]> {
   const slugs = (await redis.zrange("blog:index", "+inf" as any, "-inf", {
     byScore: true,
     rev: true,
-    limit: { offset: 0, count: 30 }
+    offset: 0,
+    count: 30, // doğru kullanım
   })) as string[];
 
   const out: BlogCardPost[] = [];
@@ -98,7 +112,7 @@ async function getRelated(slug: string, take = 3): Promise<BlogCardPost[]> {
   return out;
 }
 
-/* === Burada değişti: params Promise === */
+/** Next 15.5: params Promise olabilir → await */
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
@@ -106,7 +120,7 @@ export async function generateMetadata(
   const post = await getPost(decodeURIComponent(slug));
   if (!post) return { title: "Yazı bulunamadı" };
 
-  const title = post.title; // Layout template: "%s | Sanal Kahve Falı"
+  const title = post.title;
   const desc = post.description || summarize(post.content, SITE.description);
   const url = `${SITE.url}/blog/${post.slug}`;
   const image = post.image || "/resim/sanal-kahve-fali-x2.png";
@@ -133,7 +147,6 @@ export async function generateMetadata(
   };
 }
 
-/* === Burada da değişti: params Promise === */
 export default async function Page(
   { params }: { params: Promise<{ slug: string }> }
 ) {
@@ -148,6 +161,7 @@ export default async function Page(
   const clean = sanitizeHtml(post.content, CLEAN_OPTS);
   const shareUrl = `${SITE.url}/blog/${post.slug}`;
   const shareTitle = encodeURIComponent(post.title);
+
   const jsonLdArticle = {
     "@context": "https://schema.org",
     "@type": "Article",
