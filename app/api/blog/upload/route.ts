@@ -11,9 +11,7 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const file = form.get("file") as File | null;
-    if (!file) {
-      return NextResponse.json({ error: "Dosya gerekli." }, { status: 400 });
-    }
+    if (!file) return NextResponse.json({ error: "Dosya gerekli." }, { status: 400 });
     if (!ALLOWED.includes(file.type)) {
       return NextResponse.json({ error: "Sadece JPG/PNG/WEBP/GIF yüklenebilir." }, { status: 400 });
     }
@@ -28,7 +26,7 @@ export async function POST(req: Request) {
       access: "public",
       addRandomSuffix: true,
       multipart: true,
-      token: process.env.BLOB_READ_WRITE_TOKEN, // store projeye bağlıysa çoğu zaman gerekmez, ama dursun
+      token: process.env.BLOB_READ_WRITE_TOKEN, // store bağlıysa çoğu durumda gerekmez, bırakabiliriz
     });
 
     return NextResponse.json({ url }, { status: 200 });
@@ -37,7 +35,7 @@ export async function POST(req: Request) {
   }
 }
 
-// Yanlış method’lara da JSON dönsün
+// GET'e de JSON cevap (tarayıcı 405 sayfası göstermesin)
 export async function GET() {
   return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
 }
