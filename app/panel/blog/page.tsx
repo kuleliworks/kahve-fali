@@ -1,41 +1,41 @@
-// app/panel/blog/page.tsx
 import Link from "next/link";
+import DeletePostButton from "@/components/DeletePostButton";
 import { redis } from "@/lib/redis";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"; // her ziyaretimde KV'den güncel liste çek
+export const revalidate = 0;
 
-type Post = {
+type PostRow = {
   title: string;
   slug: string;
-  description?: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
   image?: string;
-  content?: string;
-  createdAt?: string; // ms
-  updatedAt?: string; // ms
-  status?: "pub" | "draft";
+  description?: string;
 };
 
-async function getPosts(): Promise<Post[]> {
-  // Son eklenenden başla (rev: true)
-  const slugs = (await redis.zrange("blog:index", 0, -1, { rev: true })) as unknown as string[];
+async function getPosts(): Promise<PostRow[]> {
+  // blog:index zset → en yeniler başta
+  const slugs = (await redis.zrange("blog:index", 0, -1, { rev: true })) as string[];
+
   const rows = await Promise.all(
-    (slugs || []).map(async (slug) => {
+    slugs.map(async (slug) => {
       const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
-      if (!it || !it.title) return null;
+      if (!it || Object.keys(it).length === 0) return null;
       return {
-        title: it.title,
-        slug: it.slug,
-        description: it.description,
-        image: it.image,
-        content: it.content,
-        createdAt: it.createdAt,
-        updatedAt: it.updatedAt,
-        status: (it.status === "draft" ? "draft" : "pub") as "pub" | "draft",
-      } as Post;
+        title: it.title || slug,
+        slug,
+        status: it.status || "pub",
+        createdAt: it.createdAt || "",
+        updatedAt: it.updatedAt || "",
+        image: it.image || "",
+        description: it.description || "",
+      } as PostRow;
     })
   );
 
-  return rows.filter((p): p is Post => !!p);
+  return rows.filter((r): r is PostRow => !!r);
 }
 
 export default async function Page() {
@@ -43,80 +43,81 @@ export default async function Page() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Blog Yönetimi</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Blog — Yönetim</h1>
         <Link href="/panel/blog/yeni" className="btn btn-primary">
-          + Yeni Yazı
+          Yeni Yazı
         </Link>
       </div>
 
-      <div className="k-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-stone-50 text-stone-600">
-              <tr>
-                <th className="px-4 py-3">Başlık</th>
-                <th className="px-4 py-3">Durum</th>
-                <th className="px-4 py-3">Yayın</th>
-                <th className="px-4 py-3">Slug</th>
-                <th className="px-4 py-3">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody>
-              {posts.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-stone-500">
-                    Henüz yazı yok. “Yeni Yazı” ile ekleyebilirsin.
-                  </td>
+      <div className="k-card mt-6 overflow-hidden">
+        {posts.length === 0 ? (
+          <div className="p-6 text-sm text-stone-600">
+            Henüz yazı yok. İlk yazını eklemek için sağ üstteki <strong>Yeni Yazı</strong> butonunu kullan.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="px-4 py-3 text-left font-medium text-stone-700">Başlık</th>
+                  <th className="px-4 py-3 text-left font-medium text-stone-700">Slug</th>
+                  <th className="px-4 py-3 text-left font-medium text-stone-700">Durum</th>
+                  <th className="px-4 py-3 text-left font-medium text-stone-700">Oluşturma</th>
+                  <th className="px-4 py-3 text-left font-medium text-stone-700">Güncelleme</th>
+                  <th className="px-4 py-3 text-left font-medium text-stone-700">İşlemler</th>
                 </tr>
-              ) : (
-                posts.map((p) => {
-                  const pubDate = p.createdAt ? new Date(Number(p.createdAt)) : null;
-                  return (
-                    <tr key={p.slug} className="border-t">
-                      <td className="px-4 py-3 font-medium">{p.title}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
-                            p.status === "pub"
-                              ? "bg-green-50 text-green-700 ring-1 ring-green-200"
-                              : "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200"
-                          }`}
+              </thead>
+              <tbody className="divide-y">
+                {posts.map((p) => (
+                  <tr key={p.slug}>
+                    <td className="px-4 py-3">{p.title}</td>
+                    <td className="px-4 py-3 text-stone-600">{p.slug}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          p.status === "draft"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {p.status === "draft" ? "Taslak" : "Yayında"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-stone-600">
+                      {p.createdAt ? new Date(Number(p.createdAt)).toLocaleString("tr-TR") : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-stone-600">
+                      {p.updatedAt ? new Date(Number(p.updatedAt)).toLocaleString("tr-TR") : "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/blog/${p.slug}`}
+                          className="btn btn-ghost"
+                          prefetch={false}
+                          target="_blank"
                         >
-                          {p.status === "pub" ? "Yayında" : "Taslak"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {pubDate ? pubDate.toLocaleDateString("tr-TR") : "-"}
-                      </td>
-                      <td className="px-4 py-3 text-stone-500">{p.slug}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/blog/${p.slug}`}
-                            className="btn btn-ghost"
-                            prefetch={false}
-                            target="_blank"
-                          >
-                            Görüntüle
-                          </Link>
-                          {/* İleride düzenleme/del ekleyebiliriz */}
-                          <Link
-                            href={`/panel/blog/yeni?prefill=${encodeURIComponent(p.slug)}`}
-                            className="btn btn-ghost"
-                            prefetch={false}
-                          >
-                            Kopyala & Yeni
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                          Görüntüle
+                        </Link>
+
+                        <Link
+                          href={`/panel/blog/yeni?prefill=${encodeURIComponent(p.slug)}`}
+                          className="btn btn-ghost"
+                          prefetch={false}
+                        >
+                          Kopyala & Yeni
+                        </Link>
+
+                        <DeletePostButton slug={p.slug} title={p.title} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   );
