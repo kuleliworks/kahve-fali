@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import BlogCard, { type BlogCardPost } from "@/components/BlogCard";
+import Link from "next/link";
+import Image from "next/image";
+
+export type BlogCardPost = {
+  slug: string;
+  title: string;
+  description?: string;
+  image?: string;
+  createdAt?: string;
+};
 
 export default function BlogListClient({
   initialItems,
@@ -10,52 +19,69 @@ export default function BlogListClient({
   initialItems: BlogCardPost[];
   initialCursor: number | null;
 }) {
-  const [items, setItems] = useState<BlogCardPost[]>(initialItems);
-  const [cursor, setCursor] = useState<number | null>(initialCursor);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [items, setItems] = useState<BlogCardPost[]>(initialItems || []);
+  const [cursor, setCursor] = useState<number | null>(initialCursor ?? null);
+  const [loading, setLoading] = useState(false);
 
   async function loadMore() {
-    if (!cursor || busy) return;
-    setBusy(true);
-    setErr(null);
+    if (loading || cursor === null) return;
+    setLoading(true);
     try {
       const res = await fetch(`/api/blog/list?cursor=${cursor}&limit=9`, { cache: "no-store" });
-      const ct = res.headers.get("content-type") || "";
-      const text = await res.text();
-      let json: any = null;
-      if (ct.includes("application/json")) {
-        try { json = text ? JSON.parse(text) : null; } catch {}
+      const json = await res.json();
+      if (Array.isArray(json.items)) {
+        setItems((prev) => [...prev, ...json.items]);
       }
-      if (!res.ok) throw new Error((json && json.error) || text || `Hata (HTTP ${res.status})`);
-
-      const more: BlogCardPost[] = json?.items || [];
-      setItems((prev) => [...prev, ...more]);
-      setCursor(json?.nextCursor ?? null);
-    } catch (e: any) {
-      setErr(e?.message || "Liste yüklenemedi");
+      setCursor(json.nextCursor ?? null);
+    } catch {
+      // sessizce yut
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
   return (
-    <>
-      <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((p) => <BlogCard key={p.slug} post={p} />)}
+    <div className="mt-10">
+      {/* Grid */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((p) => (
+          <article key={p.slug} className="k-card overflow-hidden">
+            <Link href={`/blog/${p.slug}`}>
+              {p.image ? (
+                <div className="relative h-44 w-full overflow-hidden rounded-xl">
+                  <Image
+                    src={p.image}
+                    alt={p.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width:768px) 100vw, 33vw"
+                  />
+                </div>
+              ) : null}
+              <div className="mt-3">
+                <h3 className="line-clamp-2 text-lg font-semibold">{p.title}</h3>
+                {p.description ? (
+                  <p className="mt-2 line-clamp-3 text-sm text-stone-700">{p.description}</p>
+                ) : null}
+              </div>
+            </Link>
+          </article>
+        ))}
       </div>
 
-      {err && <div className="mt-4 text-sm text-red-600">{err}</div>}
-
-      <div className="mt-8 flex justify-center">
-        {cursor ? (
-          <button className="btn btn-primary" onClick={loadMore} disabled={busy}>
-            {busy ? "Yükleniyor…" : "Daha fazla göster"}
+      {/* Load more */}
+      {cursor !== null && (
+        <div className="mt-8 text-center">
+          <button
+            className="btn btn-primary"
+            onClick={loadMore}
+            disabled={loading}
+            type="button"
+          >
+            {loading ? "Yükleniyor…" : "Daha fazla yükle"}
           </button>
-        ) : (
-          <div className="text-sm text-stone-500">Tüm yazılar yüklendi.</div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 }
