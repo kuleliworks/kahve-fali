@@ -4,7 +4,7 @@ import { put } from "@vercel/blob";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB (sunucu tarafı sınır)
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 export async function POST(req: Request) {
@@ -28,17 +28,16 @@ export async function POST(req: Request) {
       access: "public",
       addRandomSuffix: true,
       multipart: true,
-      token: process.env.BLOB_READ_WRITE_TOKEN, // opsiyonel; projeye store bağlıysa çoğu zaman gerekmez
+      token: process.env.BLOB_READ_WRITE_TOKEN, // store projeye bağlıysa çoğu zaman gerekmez, ama dursun
     });
 
     return NextResponse.json({ url }, { status: 200 });
   } catch (e: any) {
-    // Mutlaka JSON dön
     return NextResponse.json({ error: e?.message || "upload failed" }, { status: 500 });
   }
 }
 
-// Yanlış method’lara da JSON dön
+// Yanlış method’lara da JSON dönsün
 export async function GET() {
   return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
 }
