@@ -32,30 +32,40 @@ export default function Page() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    const finalSlug = slug || slugify(title);
-    if (!title || !finalSlug) {
-      setErr("Başlık gerekli.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch("/api/blog/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, slug: finalSlug, description, image, content, status }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Kaydetme hatası");
-      r.push(`/blog/${json.slug || finalSlug}`);
-    } catch (e: any) {
-      setErr(e?.message || "Bilinmeyen hata");
-    } finally {
-      setBusy(false);
-    }
+async function onSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  setErr(null);
+  const finalSlug = slug || slugify(title);
+  if (!title || !finalSlug) {
+    setErr("Başlık gerekli.");
+    return;
   }
+  setBusy(true);
+  try {
+    const res = await fetch("/api/blog/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // ⬇️ Burada image da gidiyor
+      body: JSON.stringify({
+        title,
+        slug: finalSlug,
+        description,
+        image,          // <— ÖNEMLİ: yüklenen görselin URL’i
+        content,        // HTML içerik
+        status,         // "pub" | "draft"
+      }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error || "Kaydetme hatası");
+    r.push(`/blog/${json.slug || finalSlug}`);
+  } catch (e: any) {
+    setErr(e?.message || "Bilinmeyen hata");
+  } finally {
+    setBusy(false);
+  }
+}
+
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-10">
