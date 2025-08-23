@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export type BlogCardPost = {
   slug: string;
@@ -31,9 +32,7 @@ export default function BlogListClient({
         { cache: "no-store" }
       );
       const json = await res.json();
-      if (Array.isArray(json.items)) {
-        setItems((prev) => [...prev, ...json.items]);
-      }
+      if (Array.isArray(json.items)) setItems((prev) => [...prev, ...json.items]);
       setCursor(json.nextCursor ?? null);
     } catch {
       // sessizce geç
@@ -46,17 +45,20 @@ export default function BlogListClient({
     <div className="mt-10">
       {/* Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((p) => (
+        {items.map((p, idx) => (
           <article key={p.slug} className="k-card overflow-hidden">
             <Link href={`/blog/${p.slug}`} className="block">
               {p.image ? (
                 <div className="relative h-44 w-full overflow-hidden rounded-xl">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={p.image}
                     alt={p.title}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
+                    // İlk kartı öncelikli yaparsan LCP hızlanır:
+                    priority={idx === 0}
+                    loading={idx === 0 ? "eager" : "lazy"}
                   />
                 </div>
               ) : null}
