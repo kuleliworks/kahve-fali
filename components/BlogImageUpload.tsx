@@ -4,71 +4,73 @@ import { useState } from "react";
 
 export default function BlogImageUpload({
   value,
-  onChange,
+  onDone,
 }: {
   value?: string;
-  onChange: (url: string) => void;
+  onDone: (url: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | undefined>(value);
 
-  async function onFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
     setErr(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Vercel fonksiyonlarında büyük gövde 413 verebilir: 4MB üstünü istemcide engelle
-    const MAX_CLIENT = 4 * 1024 * 1024;
-    if (file.size > MAX_CLIENT) {
-      setErr("Dosya çok büyük (4MB üstü). Lütfen daha küçük bir görsel yükleyin.");
-      return;
-    }
-
-    const fd = new FormData();
-    fd.append("file", file);
     setBusy(true);
     try {
+      const fd = new FormData();
+      fd.append("file", f);
       const res = await fetch("/api/blog/upload", { method: "POST", body: fd });
-
-      // --- JSON'u güvenli çöz ---
-      const ct = res.headers.get("content-type") || "";
-      const text = await res.text(); // önce metni al
-      let json: any = null;
-      if (ct.includes("application/json")) {
-        try { json = text ? JSON.parse(text) : null; } catch {}
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok || !json?.url) {
+        throw new Error(json?.error || "Yükleme başarısız");
       }
-
-      if (!res.ok) {
-        const msg = (json && json.error) || text || `Yükleme hatası (HTTP ${res.status})`;
-        throw new Error(msg);
-      }
-
-      const url = json?.url;
-      if (!url) throw new Error("Sunucu görsel URL’i döndürmedi.");
-      onChange(url);
+      onDone(json.url);
+      setPreview(json.url);
     } catch (e: any) {
-      setErr(e?.message || "Yükleme sırasında beklenmeyen bir hata oluştu.");
+      setErr(e?.message || "Yükleme hatası");
     } finally {
       setBusy(false);
+      // aynı dosyayı tekrar seçebilsin
+      e.target.value = "";
     }
   }
 
   return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium">Öne çıkarılan görsel</label>
-      <input
-        type="file"
-        accept="image/*"
-        onChange={onFileSelect}
-        disabled={busy}
-        className="block w-full text-sm"
-      />
-      {busy && <div className="text-sm text-stone-500">Yükleniyor…</div>}
-      {err && <div className="text-sm text-red-600">{err}</div>}
-      {value && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={value} alt="Önizleme" className="mt-2 h-40 w-auto rounded-xl border object-cover" />
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <label className="cursor-pointer rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-2 text-sm hover:bg-stone-100">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={onFileChange}
+            className="sr-only"
+          />
+          <i className="fa-regular fa-image mr-2" />
+          {busy ? "Yükleniyor…" : "Görsel seç / yükle"}
+        </label>
+
+        {preview && (
+          <a
+            href={preview}
+            target="_blank"
+            rel="noopener"
+            className="text-sm underline underline-offset-4"
+          >
+            Görseli aç
+          </a>
+        )}
+      </div>
+
+      {preview && (
+        <div className="overflow-hidden rounded-xl ring-1 ring-stone-200">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={preview} alt="Önizleme" className="h-40 w-full object-cover" />
+        </div>
       )}
+
+      {err && <p className="text-sm text-red-600">{err}</p>}
     </div>
   );
 }
