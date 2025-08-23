@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { redis } from "@/lib/redis";
 import { SITE } from "@/lib/seo";
-import sanitizeHtml from "sanitize-html";
+import sanitizeHtml, { IOptions } from "sanitize-html"; // 👈 TIPI AYRI IMPORT
 import BlogCard, { type BlogCardPost } from "@/components/BlogCard";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +19,8 @@ type PostKV = {
   updatedAt?: string;   // ms
 };
 
-/** sanitize-html ayarları (simpleTransform KULLANMADAN) */
-const CLEAN_OPTS: sanitizeHtml.IOptions = {
+/** sanitize-html ayarları */
+const CLEAN_OPTS: IOptions = { // 👈 BURADA DA IOptions KULLANIYORUZ
   allowedTags: [
     "p","h1","h2","h3","h4","strong","em","u","s","a","ul","ol","li",
     "blockquote","code","pre","hr","br","img","figure","figcaption",
@@ -34,7 +34,6 @@ const CLEAN_OPTS: sanitizeHtml.IOptions = {
   allowedSchemes: ["http","https","mailto"],
   transformTags: {
     a: (_tag, attribs) => {
-      // href dışındaki öznitelikleri güvenli değerlere sabitle
       const href = attribs.href || "#";
       return {
         tagName: "a",
@@ -91,7 +90,7 @@ async function getRelated(slug: string, take = 3): Promise<BlogCardPost[]> {
     byScore: true,
     rev: true,
     offset: 0,
-    count: 30, // doğru kullanım
+    count: 30,
   })) as string[];
 
   const out: BlogCardPost[] = [];
