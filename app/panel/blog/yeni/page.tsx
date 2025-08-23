@@ -1,170 +1,183 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import BlogImageUpload from "@/components/BlogImageUpload";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-type Status = "pub" | "draft";
+type Draft = {
+  title?: string;
+  slug?: string;
+  description?: string;
+  image?: string;
+  content?: string; // HTML/Markdown (sen HTML kaydediyorsun)
+  status?: "draft" | "pub" | "scheduled";
+  publishAt?: string; // datetime-local
+};
 
-function slugify(input: string) {
-  return input
+export default function NewPostPage() {
+  const sp = useSearchParams();
+  const editSlug = sp.get("edit") || null;
+  const router = useRouter();
+
+  const [d, setD] = useState<Draft>({ status: "draft" });
+  const [slugTaken, setSlugTaken] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<{ slug: string } | null>(null);
+
+  // Eğer düzenleme modundaysan mevcut içeriği çek
+  useEffect(() => {
+    async function loadEdit() {
+      if (!editSlug) return;
+      const res = await fetch(`/api/panel/blog/check-slug?slug=${encodeURIComponent(editSlug)}`, { cache: "no-store" });
+      const j = await res.json();
+      if (j.exists) {
+        const it = await (await fetch(`/api/blog/detail?slug=${encodeURIComponent(editSlug)}`, { cache: "no-store" })).json().catch(() => null);
+        // Yukarıdaki endpoint yoksa, istersen ayrı bir admin get route’u ekleyebilirsin.
+        // Şimdilik düzenleme modunu basit tutuyoruz: sadece slug’ı kilitle.
+        setD((p) => ({ ...p, slug: editSlug }));
+        setSlugTaken(true);
+      }
+    }
+    loadEdit();
+  }, [editSlug]);
+
+  const finalSlug = useMemo(() => (d.slug || d.title || "")
     .toLowerCase()
-    .replace(/ç/g, "c")
-    .replace(/ğ/g, "g")
-    .replace(/ı/g, "i")
-    .replace(/ö/g, "o")
-    .replace(/ş/g, "s")
-    .replace(/ü/g, "u")
-    .replace(/[^a-z0-9\-_\s]/g, "")
     .trim()
     .replace(/\s+/g, "-")
-    .slice(0, 80);
-}
+    .replace(/[^a-z0-9\-ğüşöçı]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, ""), [d.slug, d.title]);
 
-export default function Page() {
-  const r = useRouter();
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  const [description, setDescription] = useState("");
-  const [image, setImage] = useState<string>("");
-  const [content, setContent] = useState<string>(""); // HTML içerik
-  const [status, setStatus] = useState<Status>("pub");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-async function onSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  setErr(null);
-
-  const finalSlug = slug || slugify(title);
-  if (!title || !finalSlug) {
-    setErr("Başlık gerekli.");
-    return;
+  async function checkSlug() {
+    if (!finalSlug) { setSlugTaken(null); return; }
+    const res = await fetch(`/api/panel/blog/check-slug?slug=${encodeURIComponent(finalSlug)}`, { cache: "no-store" });
+    const json = await res.json();
+    setSlugTaken(!!json.exists);
   }
 
-  setBusy(true);
-  try {
-    const res = await fetch("/api/blog/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        slug: finalSlug,
-        description,
-        image,      // BlogImageUpload ile gelen URL
-        content,    // HTML içerik
-        status,     // "pub" | "draft"
-      }),
-    });
-
-    // --- Güvenli ayrıştırma ---
-    const ct = res.headers.get("content-type") || "";
-    const text = await res.text(); // önce düz metni al
-    let json: any = null;
-    if (ct.includes("application/json")) {
-      try { json = text ? JSON.parse(text) : null; } catch {}
+  async function onSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const ts = d.publishAt ? Date.parse(d.publishAt) : null;
+      const res = await fetch("/api/panel/blog/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: d.title,
+          slug: finalSlug,
+          description: d.description,
+          image: d.image,
+          content: d.content,
+          status: d.status,
+          publishAt: ts && Number.isFinite(ts) ? ts : null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        alert(json.error || "Kaydedilemedi");
+        return;
+      }
+      setSaved({ slug: json.slug });
+    } finally {
+      setSaving(false);
     }
-
-    if (!res.ok) {
-      const msg = (json && json.error) || text || `Kaydetme hatası (HTTP ${res.status})`;
-      throw new Error(msg);
-    }
-
-    const nextSlug = json?.slug || finalSlug;
-    // başarılı → yazıyı aç
-    r.push(`/blog/${nextSlug}`);
-  } catch (e: any) {
-    setErr(e?.message || "Bilinmeyen hata");
-  } finally {
-    setBusy(false);
   }
-}
-
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Yeni Blog Yazısı</h1>
+      <h1 className="text-2xl font-semibold">{editSlug ? "Yazıyı Düzenle" : "Yeni Yazı"}</h1>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-6">
-        <div className="k-card space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium">Başlık</label>
-              <input
-                className="input mt-1"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Örn: Kahve Falında Yılan Görmek"
-                required
-              />
-            </div>
+      <form className="mt-6 space-y-4" onSubmit={onSave}>
+        <div>
+          <label className="text-sm font-medium">Başlık</label>
+          <input className="input mt-1" placeholder="Başlık" value={d.title || ""} onChange={(e) => setD({ ...d, title: e.target.value })} />
+        </div>
 
-            <div>
-              <label className="block text-sm font-medium">Slug (opsiyonel)</label>
-              <input
-                className="input mt-1"
-                value={slug}
-                onChange={(e) => setSlug(slugify(e.target.value))}
-                placeholder="kahve-falinda-yilan-gormek"
-              />
-            </div>
+        <div>
+          <label className="text-sm font-medium">Slug</label>
+          <div className="flex gap-2">
+            <input
+              className="input mt-1 flex-1"
+              placeholder="slug"
+              value={editSlug ? editSlug : (d.slug || "")}
+              onChange={(e) => { if (!editSlug) setD({ ...d, slug: e.target.value }); }}
+              onBlur={checkSlug}
+              disabled={!!editSlug}
+            />
+            <button type="button" className="btn btn-ghost mt-1" onClick={checkSlug}>Kontrol</button>
+          </div>
+          {slugTaken === true && !editSlug && (
+            <p className="mt-1 text-sm text-red-600">Bu slug zaten kullanılıyor.</p>
+          )}
+          {slugTaken === false && (
+            <p className="mt-1 text-sm text-green-700">Slug uygun.</p>
+          )}
+          <p className="mt-1 text-xs text-stone-500">Otomatik: <code>{finalSlug || "-"}</code></p>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Açıklama (SEO)</label>
+          <textarea className="input mt-1 h-20" placeholder="Kısa açıklama" value={d.description || ""} onChange={(e) => setD({ ...d, description: e.target.value })} />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Öne çıkan görsel URL</label>
+          <input className="input mt-1" placeholder="https://..." value={d.image || ""} onChange={(e) => setD({ ...d, image: e.target.value })} />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">İçerik (HTML/Markdown)</label>
+          <textarea className="input mt-1 h-64" placeholder="<p>…</p>" value={d.content || ""} onChange={(e) => setD({ ...d, content: e.target.value })} />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="text-sm font-medium">Durum</label>
+            <select className="input mt-1" value={d.status || "draft"} onChange={(e) => setD({ ...d, status: e.target.value as any })}>
+              <option value="draft">Taslak</option>
+              <option value="pub">Yayımla</option>
+              <option value="scheduled">Zamanla</option>
+            </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium">Kısa açıklama (description)</label>
+          <div className="sm:col-span-2">
+            <label className="text-sm font-medium">Yayın zamanı (isteğe bağlı)</label>
             <input
               className="input mt-1"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Yazının kısa özeti (SEO)."
+              type="datetime-local"
+              value={d.publishAt || ""}
+              onChange={(e) => setD({ ...d, publishAt: e.target.value })}
             />
-          </div>
-
-          {/* Görsel dosya yükleme (Vercel Blob) */}
-          <BlogImageUpload value={image} onChange={setImage} />
-
-          <div>
-            <label className="block text-sm font-medium">İçerik (HTML)</label>
-            <textarea
-              className="mt-1 w-full rounded-xl border p-3"
-              rows={14}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="<h2>Başlık</h2><p>HTML içerik...</p>"
-            />
-            <p className="mt-1 text-xs text-stone-500">
-              İçerik HTML olarak kaydedilir; sitede güvenlik için sanitize edilerek gösterilir.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium">Durum:</label>
-            <button
-              type="button"
-              className={`btn ${status === "pub" ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => setStatus("pub")}
-            >
-              Yayınla
-            </button>
-            <button
-              type="button"
-              className={`btn ${status === "draft" ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => setStatus("draft")}
-            >
-              Taslak
-            </button>
-          </div>
-
-          {err && <div className="text-sm text-red-600">{err}</div>}
-
-          <div className="flex items-center justify-end gap-3">
-            <a href="/panel" className="btn btn-ghost">Vazgeç</a>
-            <button className="btn btn-primary" type="submit" disabled={busy}>
-              {busy ? "Kaydediliyor…" : "Kaydet"}
-            </button>
+            <p className="mt-1 text-xs text-stone-500">Geleceğe tarih verirsen durumun “Yayımla” seçili olsa bile otomatik “Zamanla” yapılır.</p>
           </div>
         </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button className="btn btn-primary" type="submit" disabled={saving || slugTaken === true}>
+            {saving ? "Kaydediliyor…" : "Kaydet"}
+          </button>
+          <a href="/panel/blog" className="btn btn-ghost">Panele dön</a>
+        </div>
       </form>
+
+      {/* Başarılı oluşturma alert’i */}
+      {saved && (
+        <div className="k-card mt-6 border-green-200 bg-green-50">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium">İçerik eklendi</div>
+              <div className="text-sm text-stone-700">/{saved.slug} yayın kuyruğuna alındı.</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a className="btn btn-ghost" href={`/blog/${saved.slug}`} target="_blank" rel="noopener">Yazıyı gör</a>
+              <button className="btn btn-primary" onClick={() => { setD({ status: "draft" }); setSaved(null); setSlugTaken(null); }}>
+                Yeni yazı ekle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
