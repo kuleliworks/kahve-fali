@@ -1,36 +1,54 @@
-// app/api/blog/list/route.ts
 import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
 
-export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
-export async function GET() {
+/**
+ * GET /api/blog/list?cursor=<number>&limit=<1..24>
+ * cursor: bir önceki paketin en küçük ZSET skorundan 1 eksik (timestamp-1)
+ * yoksa "+inf" (en yeniler)
+ */
+export async function GET(req: Request) {
   try {
-    // generic kaldır + cast et
-    const slugs = (await redis.zrange("blog:index", 0, -1, { rev: true })) as string[];
-    // Eğer { rev: true } takılırsa:
-    // const slugs = (await redis.zrange("blog:index", 0, -1)) as string[];
-    // slugs.reverse();
+    const url = new URL(req.url);
+    const limitQ = Number(url.searchParams.get("limit") || 9);
+    const limit = Math.min(Math.max(limitQ, 1), 24);
 
-    const rows = await Promise.all(
-      slugs.map(async (slug) => {
-        const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
-        if (!it) return null;
-        return {
-          title: it.title,
-          slug: it.slug,
-          description: it.description,
-          image: it.image,
-          status: it.status,
-          createdAt: it.createdAt,
-          updatedAt: it.updatedAt,
-        };
-      })
-    );
-    const items = rows.filter(Boolean);
-    return NextResponse.json({ items });
+    const cursorParam = url.searchParams.get("cursor");
+    const max = cursorParam ? Number(cursorParam) : "+inf";
+
+    // ZSET: blog:index → skor = createdAt (ms)
+    const slugs = (await redis.zrange("blog:index", max as any, "-inf", {
+      byScore: true,
+      rev: true,
+      limit: { offset: 0, count: limit },
+    })) as string[];
+
+    const items: Array<{slug:string; title:string; description?:string; image?:string; createdAt?:string}> = [];
+    for (const slug of slugs) {
+      const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
+      if (!it || Object.keys(it).length === 0) continue;
+      if (it.status && it.status !== "pub") continue;
+      items.push({
+        slug,
+        title: it.title || slug,
+        description: it.description || "",
+        image: it.image || "",
+        createdAt: it.createdAt || "",
+      });
+    }
+
+    // Son alınanın skorunu bul → nextCursor = skor-1
+    let nextCursor: number | null = null;
+    if (slugs.length === limit) {
+      const lastSlug = slugs[slugs.length - 1];
+      const s = await redis.zscore("blog:index", lastSlug);
+      if (s) nextCursor = Number(s) - 1;
+    }
+
+    return NextResponse.json({ items, nextCursor }, { status: 200 });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "list error" }, { status: 500 });
+    return NextResponse.json({ error: e?.message || "list failed" }, { status: 500 });
   }
 }
-
