@@ -4,22 +4,15 @@ import { redis } from "@/lib/redis";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/**
- * GET /api/blog/list?cursor=<number>&limit=<1-24>
- * ZSet: blog:index (score = createdAt ms, member = slug)
- * Hash: blog:post:<slug>
- */
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const limitQ = Number(url.searchParams.get("limit") || 9);
     const limit = Math.min(Math.max(limitQ, 1), 24);
 
-    // sayfalama için cursor (zrange by score, high -> low)
     const cursorParam = url.searchParams.get("cursor");
     const max: number | "+inf" = cursorParam ? Number(cursorParam) : "+inf";
 
-    // Upstash Redis: offset/count üst seviyede veriliyor
     const slugs = (await redis.zrange("blog:index", max as any, "-inf", {
       byScore: true,
       rev: true,
@@ -43,7 +36,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // bir sonraki cursor: son elemanın score'undan 1 eksilt
     let nextCursor: number | null = null;
     if (slugs.length === limit) {
       const lastSlug = slugs[slugs.length - 1];
@@ -51,7 +43,16 @@ export async function GET(req: Request) {
       if (s !== null && s !== undefined) nextCursor = Number(s) - 1;
     }
 
-    return NextResponse.json({ items, nextCursor }, { status: 200 });
+    return NextResponse.json(
+      { items, nextCursor },
+      {
+        status: 200,
+        headers: {
+          // 2 dk edge cache, 10 dk SWR
+          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "list failed" }, { status: 500 });
   }
