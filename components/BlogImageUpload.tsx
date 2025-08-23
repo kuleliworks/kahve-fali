@@ -17,8 +17,8 @@ export default function BlogImageUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Vercel serverless için güvenli eşik (büyük dosya 413 verebilir)
-    const MAX_CLIENT = 4 * 1024 * 1024; // 4MB
+    // Vercel fonksiyonlarında büyük gövde 413 verebilir: 4MB üstünü istemcide engelle
+    const MAX_CLIENT = 4 * 1024 * 1024;
     if (file.size > MAX_CLIENT) {
       setErr("Dosya çok büyük (4MB üstü). Lütfen daha küçük bir görsel yükleyin.");
       return;
@@ -30,16 +30,12 @@ export default function BlogImageUpload({
     try {
       const res = await fetch("/api/blog/upload", { method: "POST", body: fd });
 
+      // --- JSON'u güvenli çöz ---
       const ct = res.headers.get("content-type") || "";
-      const text = await res.text(); // önce düz metin al
+      const text = await res.text(); // önce metni al
       let json: any = null;
-
       if (ct.includes("application/json")) {
-        try {
-          json = text ? JSON.parse(text) : null; // boşsa parse etme
-        } catch {
-          // JSON değilse json null kalsın
-        }
+        try { json = text ? JSON.parse(text) : null; } catch {}
       }
 
       if (!res.ok) {
@@ -71,11 +67,7 @@ export default function BlogImageUpload({
       {err && <div className="text-sm text-red-600">{err}</div>}
       {value && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={value}
-          alt="Önizleme"
-          className="mt-2 h-40 w-auto rounded-xl border object-cover"
-        />
+        <img src={value} alt="Önizleme" className="mt-2 h-40 w-auto rounded-xl border object-cover" />
       )}
     </div>
   );
