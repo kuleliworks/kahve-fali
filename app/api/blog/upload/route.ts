@@ -1,41 +1,45 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 
-export const runtime = "nodejs";
-export const maxDuration = 60;
-
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+export const runtime = "edge"; // hızlı ve düşük gecikme
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  try {
-    const form = await req.formData();
-    const file = form.get("file") as File | null;
-    if (!file) return NextResponse.json({ error: "Dosya gerekli." }, { status: 400 });
-    if (!ALLOWED.includes(file.type)) {
-      return NextResponse.json({ error: "Sadece JPG/PNG/WEBP/GIF yüklenebilir." }, { status: 400 });
-    }
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: "Maksimum 10MB dosya yüklenebilir." }, { status: 400 });
-    }
-
-    const safeName = file.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9.\-_]/g, "");
-    const key = `blog/${Date.now()}-${safeName}`;
-
-    const { url } = await put(key, file, {
-      access: "public",
-      addRandomSuffix: true,
-      multipart: true,
-      token: process.env.BLOB_READ_WRITE_TOKEN, // store bağlıysa çoğu durumda gerekmez, bırakabiliriz
-    });
-
-    return NextResponse.json({ url }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "upload failed" }, { status: 500 });
+  const ct = req.headers.get("content-type") || "";
+  if (!ct.includes("multipart/form-data")) {
+    return NextResponse.json({ ok: false, error: "multipart/form-data gerekli" }, { status: 400 });
   }
+
+  const form = await req.formData();
+  const file = form.get("file");
+
+  if (!(file instanceof File)) {
+    return NextResponse.json({ ok: false, error: "file alanı zorunlu" }, { status: 400 });
+  }
+  if (!file.type.startsWith("image/")) {
+    return NextResponse.json({ ok: false, error: "Sadece görsel yükleyin" }, { status: 400 });
+  }
+
+  // Boyut limiti (ör: 12 MB). İstersen artır: 20 * 1024 * 1024
+  const MAX = 12 * 1024 * 1024;
+  if (file.size > MAX) {
+    return NextResponse.json({ ok: false, error: "Görsel çok büyük (12MB+)" }, { status: 413 });
+  }
+
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const key = `blog/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+  const ab = await file.arrayBuffer();
+  const { url } = await put(key, new Uint8Array(ab), {
+    access: "public",
+    contentType: file.type,
+    token: process.env.BLOB_READ_WRITE_TOKEN, // Vercel env'de ayarlı olmalı
+  });
+
+  return NextResponse.json({ ok: true, url });
 }
 
-// GET'e de JSON cevap (tarayıcı 405 sayfası göstermesin)
 export async function GET() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+  // Bu endpoint sadece POST kabul eder
+  return NextResponse.json({ ok: false, error: "Method Not Allowed" }, { status: 405 });
 }
