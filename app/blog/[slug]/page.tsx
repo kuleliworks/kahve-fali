@@ -1,3 +1,4 @@
+// app/blog/[slug]/page.tsx
 import { notFound } from "next/navigation";
 import sanitizeHtml from "sanitize-html";
 import { redis } from "@/lib/redis";
@@ -13,11 +14,6 @@ type Post = {
   createdAt?: string;
   updatedAt?: string;
 };
-
-export async function generateStaticParams() {
-  // Statik build’lerde sorun yaşamamak için boş bırakıyoruz (SSG yerine dinamik).
-  return [];
-}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -37,8 +33,13 @@ async function getPost(slug: string): Promise<Post | null> {
   };
 }
 
-export default async function Page({ params }: { params: { slug: string } }) {
-  const post = await getPost(params.slug);
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const post = await getPost(slug);
   if (!post) return notFound();
 
   const clean = sanitizeHtml(post.content || "", {
@@ -64,7 +65,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         {dateStr && <div className="mt-2 text-sm text-stone-600">{dateStr}</div>}
       </header>
 
-      {/* ÖNE ÇIKARILAN GÖRSEL — kırpmadan sığdır */}
       {post.image ? (
         <div className="overflow-hidden rounded-2xl bg-stone-50 ring-1 ring-stone-200">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -78,20 +78,17 @@ export default async function Page({ params }: { params: { slug: string } }) {
         </div>
       ) : null}
 
-      {/* İÇERİK */}
       <article
         className="prose prose-stone mt-8 max-w-none prose-h2:mt-8 prose-img:rounded-xl"
         dangerouslySetInnerHTML={{ __html: clean }}
       />
 
-      {/* BENZER YAZILAR (3 sütun) */}
       <RelatedPosts currentSlug={post.slug} />
     </section>
   );
 }
 
 async function getRelated(currentSlug: string, take = 3) {
-  // Basit: En yeni ilk 50’yi çek, current’ı çıkar, ilk 3’ü al
   const slugs = (await redis.zrange("blog:index", 0, 49, { rev: true })) as string[];
   const out: Array<{ slug: string; title: string; image?: string }> = [];
   for (const s of slugs) {
