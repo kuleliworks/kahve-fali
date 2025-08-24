@@ -1,218 +1,132 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { redis } from "@/lib/redis";
-import { SITE } from "@/lib/seo";
+import sanitizeHtml, { IOptions } from "sanitize-html";
+import Link from "next/link";
 
-export const revalidate = 600; // 10 dk
+type Post = {
+  title: string;
+  description?: string;
+  image?: string;
+  imageKey?: string;
+  content?: string;
+  status?: "draft" | "pub";
+  createdAt?: string;
+};
 
-/** Yardımcılar */
-function absImg(src?: string) {
-  if (!src) return `${SITE.url}/resim/sanal-kahve-fali-x2.png`;
-  if (src.startsWith("http")) return src;
-  return `${SITE.url}${src.startsWith("/") ? "" : "/"}${src}`;
-}
-function toIso(ms?: string) {
-  if (!ms) return undefined;
-  const n = Number(ms);
-  if (!Number.isFinite(n)) return undefined;
-  return new Date(n).toISOString();
-}
-function readingTimeFromHtml(html?: string) {
-  if (!html) return 1;
-  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const words = text ? text.split(" ").length : 0;
-  return Math.max(1, Math.round(words / 200)); // ~200 wpm
-}
-
-async function getPost(slug: string) {
-  const post = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
-  if (!post || Object.keys(post).length === 0) return null;
-  if (post.status && post.status !== "pub") return null;
-  return post;
-}
-
-async function getRelated(currentSlug: string, limit = 3) {
-  const slugs = (await redis.zrange("blog:index", "+inf" as any, "-inf", {
-    byScore: true,
-    rev: true,
-    offset: 0,
-    count: 30,
-  })) as string[];
-  const out: Array<{ slug: string; title: string; image?: string }> = [];
-  for (const s of slugs) {
-    if (s === currentSlug) continue;
-    const it = await redis.hgetall<Record<string, string>>(`blog:post:${s}`);
-    if (!it || it.status !== "pub") continue;
-    out.push({ slug: s, title: it.title || s, image: it.image || "" });
-    if (out.length >= limit) break;
-  }
-  return out;
-}
-
-/** SEO: Metadata */
-export async function generateMetadata({ params }: any): Promise<Metadata> {
-  const slug = decodeURIComponent(params?.slug || "");
-  const post = await getPost(slug);
-  if (!post) return { title: "Bulunamadı" };
-
-  const title = post.title || slug;
-  const description = post.description || SITE.description;
-  const image = absImg(post.image);
-  const publishedTime = toIso(post.createdAt);
-  const modifiedTime = toIso(post.updatedAt) || publishedTime;
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const it = await redis.hgetall<Record<string,string>>(`blog:post:${slug}`);
+  const title = it?.title || slug;
+  const desc  = it?.description || "Sanal Kahve Falı blog yazısı";
+  const imageKey = it?.imageKey || "";
+  const image = imageKey ? `${process.env.NEXT_PUBLIC_BASE_URL || ""}/media/${imageKey}` : (it?.image || "/resim/sanal-kahve-fali-x2.png");
 
   return {
     title,
-    description,
+    description: desc,
     alternates: { canonical: `/blog/${slug}` },
-    openGraph: {
-      type: "article",
-      url: `/blog/${slug}`,
-      title,
-      description,
-      images: [{ url: image }],
-      siteName: SITE.name,
-      publishedTime,
-      modifiedTime,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [image],
-    },
+    openGraph: { title, description: desc, images: [{ url: image }] },
+    twitter: { title, description: desc, images: [image] },
   };
 }
 
-/** Sayfa */
-export default async function Page({ params }: any) {
-  const slug = decodeURIComponent(params?.slug || "");
-  const post = await getPost(slug);
-  if (!post) return notFound();
+// HTML sanitize seçenekleri
+const CLEAN_OPTS: IOptions = {
+  allowedTags: [
+    "p","h1","h2","h3","h4","strong","em","u","s","a","ul","ol","li",
+    "blockquote","code","pre","hr","br","img","figure","figcaption",
+    "table","thead","tbody","tr","th","td"
+  ],
+  allowedAttributes: {
+    a: ["href","title","rel","target"],
+    img: ["src","alt","title","width","height","loading"],
+    "*": ["class","id","style"]
+  },
+  allowedSchemes: ["http","https","mailto"],
+  transformTags: {
+    a: (tag, attribs) => ({ tagName: "a", attribs: { ...attribs, rel: "nofollow noopener", target: "_blank" } }),
+    img: (_tag, attribs) => {
+      const src = attribs.src || "";
+      return { tagName: "img", attribs: { ...attribs, src, loading: attribs.loading || "lazy" } };
+    }
+  }
+};
 
-  const publishedISO = toIso(post.createdAt);
-  const modifiedISO = toIso(post.updatedAt) || publishedISO;
-  const dateStr = post.createdAt ? new Date(Number(post.createdAt)).toLocaleDateString("tr-TR") : "";
-  const rtime = readingTimeFromHtml(post.content);
+async function getRelated(currentSlug: string, take = 3) {
+  const slugs = await redis.zrange<string[]>("blog:index", 0, -1, { rev: true });
+  const others = (slugs || []).filter(s => s !== currentSlug).slice(0, take);
+  const rows = await Promise.all(others.map(async (s) => {
+    const it = await redis.hgetall<Record<string,string>>(`blog:post:${s}`);
+    if (!it || it.status !== "pub") return null;
+    return {
+      slug: s,
+      title: it.title || s,
+      imageKey: it.imageKey || "",
+      image: it.image || "",
+    };
+  }));
+  return rows.filter(Boolean) as Array<{slug:string; title:string; imageKey?:string; image?:string;}>;
+}
+
+export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const it = await redis.hgetall<Record<string,string>>(`blog:post:${slug}`);
+  if (!it || it.status !== "pub") {
+    return (
+      <section className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <h1 className="text-3xl font-bold">Yazı bulunamadı</h1>
+        <p className="mt-2 text-stone-700">Aradığınız içerik yayında değil veya kaldırılmış olabilir.</p>
+        <Link className="btn btn-primary mt-6" href="/blog">Blog’a dön</Link>
+      </section>
+    );
+  }
+
+  const heroSrc = it.imageKey ? `/media/${it.imageKey}` : (it.image || "/resim/sanal-kahve-fali-x2.png");
+  const html = sanitizeHtml(it.content || "", CLEAN_OPTS);
+  const dateStr = it.createdAt ? new Date(it.createdAt).toLocaleDateString("tr-TR") : "";
+
   const related = await getRelated(slug, 3);
 
-  /** JSON-LD: BlogPosting + BreadcrumbList */
-  const jsonLdArticle = {
-    "@context": "https://schema.org",
-    "@type": "BlogPosting",
-    mainEntityOfPage: `${SITE.url}/blog/${slug}`,
-    headline: post.title,
-    description: post.description || SITE.description,
-    image: [absImg(post.image)],
-    author: { "@type": "Organization", name: SITE.name, url: SITE.url },
-    publisher: {
-      "@type": "Organization",
-      name: SITE.name,
-      url: SITE.url,
-      logo: { "@type": "ImageObject", url: `${SITE.url}/resim/sanal-kahve-fali-x2.png` },
-    },
-    datePublished: publishedISO,
-    dateModified: modifiedISO,
-    inLanguage: "tr-TR",
-  };
-  const jsonLdBreadcrumb = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Ana Sayfa", item: SITE.url },
-      { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE.url}/blog` },
-      { "@type": "ListItem", position: 3, name: post.title, item: `${SITE.url}/blog/${slug}` },
-    ],
-  };
-
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10" style={{ contentVisibility: "auto" }}>
-      {/* Breadcrumb — tek satır, kesmeli */}
-      <nav aria-label="Breadcrumb" className="mb-6 overflow-hidden">
-        <ol className="flex items-center gap-2 text-sm text-stone-600 whitespace-nowrap overflow-hidden">
-          <li>
-            <a href="/" className="hover:underline">Ana Sayfa</a>
-          </li>
-          <li className="opacity-60">/</li>
-          <li>
-            <a href="/blog" className="hover:underline">Blog</a>
-          </li>
-          <li className="opacity-60">/</li>
-          <li
-            className="truncate max-w-[60vw] md:max-w-[70%]"
-            aria-current="page"
-            title={post.title}
-          >
-            {post.title}
-          </li>
-        </ol>
+    <section className="mx-auto max-w-3xl px-4 py-10 lg:max-w-4xl">
+      {/* Breadcrumb */}
+      <nav className="text-sm text-stone-600">
+        <Link href="/" className="hover:underline">Ana sayfa</Link> <span>›</span>{" "}
+        <Link href="/blog" className="hover:underline">Blog</Link> <span>›</span>{" "}
+        <span className="text-stone-900">{it.title || slug}</span>
       </nav>
 
-      {/* Kart gövdeli makale */}
-      <div className="k-card p-6 md:p-8">
-        <header className="mb-6">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">{post.title}</h1>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            {dateStr && (
-              <span className="inline-flex items-center rounded-full bg-stone-100 px-3 py-1 text-stone-700">
-                <i className="fa-regular fa-calendar me-2" />
-                <time dateTime={publishedISO} title={dateStr}>{dateStr}</time>
-              </span>
-            )}
-            <span className="inline-flex items-center rounded-full bg-stone-100 px-3 py-1 text-stone-700">
-              <i className="fa-regular fa-clock me-2" />
-              {rtime} dk okuma
-            </span>
-          </div>
-        </header>
+      {/* Başlık */}
+      <header className="mt-4">
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{it.title || slug}</h1>
+        {dateStr && <div className="mt-2 text-sm text-stone-600">{dateStr}</div>}
+      </header>
 
-        {post.image ? (
-          <div className="mb-6 overflow-hidden rounded-2xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={post.image}
-              alt={post.title}
-              className="h-auto w-full object-cover"
-              loading="lazy"
-            />
-          </div>
-        ) : null}
+      {/* Hero */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={heroSrc} alt={it.title || slug} className="mt-6 h-64 w-full rounded-2xl object-cover ring-1 ring-stone-200" />
 
-        {/* İçerik */}
-        <article
-          className="prose-article"
-          dangerouslySetInnerHTML={{ __html: post.content || "" }}
-        />
-      </div>
+      {/* İçerik */}
+      <article className="prose-article k-card mt-6" dangerouslySetInnerHTML={{ __html: html }} />
 
-      {/* Benzer Yazılar — 3 sütun */}
+      {/* Benzer yazılar */}
       {related.length > 0 && (
-        <div className="mt-10">
+        <section className="mt-10">
           <h2 className="text-xl font-semibold">Benzer yazılar</h2>
-          <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {related.map((r) => (
-              <a key={r.slug} href={`/blog/${r.slug}`} className="k-card h-full hover:shadow-lg transition">
-                {r.image ? (
-                  <div className="mb-3 overflow-hidden rounded-xl">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={r.image}
-                      alt={r.title}
-                      className="h-36 w-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                ) : null}
-                <div className="font-medium">{r.title}</div>
-              </a>
-            ))}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {related.map(r => {
+              const src = r.imageKey ? `/media/${r.imageKey}` : (r.image || "/resim/sanal-kahve-fali-x2.png");
+              return (
+                <Link key={r.slug} href={`/blog/${r.slug}`} className="k-card hover:shadow-md transition">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt={r.title} className="h-28 w-full rounded-xl object-cover ring-1 ring-stone-200" />
+                  <div className="mt-2 font-medium line-clamp-2">{r.title}</div>
+                </Link>
+              );
+            })}
           </div>
-        </div>
+        </section>
       )}
-
-      {/* JSON-LD */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdArticle) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdBreadcrumb) }} />
     </section>
   );
 }
