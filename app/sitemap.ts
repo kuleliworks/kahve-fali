@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
-import { redis } from "@/lib/redis";
 
-// EŞİK: Eğer Redis env'lerinden biri yoksa, sadece statik döneriz.
-const HAS_REDIS =
-  !!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN;
+/** Bu dosyayı runtime'da çalıştır, build'te dondurma */
+export const dynamic = "force-dynamic";
+export const revalidate = 300; // 5 dk cache
+export const runtime = "nodejs"; // edge ile olası fetch/Headers farklarını önler
 
 function baseUrl() {
   return "https://www.kahvefalin.com";
@@ -37,38 +37,41 @@ function safeDate(input?: unknown): Date {
   return new Date();
 }
 
-export const revalidate = 300; // 5 dk
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = staticEntries();
 
-  // Redis yoksa direkt statik dön.
-  if (!HAS_REDIS) return base;
+  // Env yoksa hiç uğraşma, statik dön
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return base;
 
   try {
-    // En yeni 0..49 (toplam 50) slug'ı çek (rev: true -> yeni->eski)
-    const raw = (await redis.zrange("blog:index", 0, 49, { rev: true } as any)) as unknown;
+    // Redis’i güvenli şekilde local burada oluştur
+    const { Redis } = await import("@upstash/redis");
+    const redis = new Redis({ url, token });
+
+    // En yeni 50 yazı (rev:true => yeni->eski)
+    const raw: unknown = await redis.zrange("blog:index", 0, 49, { rev: true } as any);
     const slugs: string[] = Array.isArray(raw) ? raw.map((s: any) => String(s)) : [];
     if (slugs.length === 0) return base;
 
     const b = baseUrl();
-    const rows = await Promise.all(
-      slugs.map(async (slug) => {
-        const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
-        if (!it) return null;
-        return {
-          url: `${b}/blog/${encodeURIComponent(slug)}`,
-          lastModified: safeDate(it.updatedAt || it.createdAt),
-          changeFrequency: "weekly",
-          priority: 0.7,
-        } as MetadataRoute.Sitemap[number];
-      })
-    );
+    const rows: MetadataRoute.Sitemap = [];
 
-    const blogPart = rows.filter(Boolean) as MetadataRoute.Sitemap;
-    return [...base, ...blogPart];
+    for (const slug of slugs) {
+      const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
+      if (!it) continue;
+      rows.push({
+        url: `${b}/blog/${encodeURIComponent(slug)}`,
+        lastModified: safeDate(it.updatedAt || it.createdAt),
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    }
+
+    return [...base, ...rows];
   } catch {
-    // Her türlü hata -> Statik listeye düş.
+    // Ne olursa olsun asla boş dönme
     return base;
   }
 }
