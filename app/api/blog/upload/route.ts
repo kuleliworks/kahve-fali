@@ -44,4 +44,3 @@ export async function GET() {
   // Sadece POST kabul edilsin
   return NextResponse.json({ ok: false, error: "Method Not Allowed" }, { status: 405 });
 }
-
