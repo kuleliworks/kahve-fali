@@ -3,18 +3,16 @@ import { NextResponse } from "next/server";
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-const ORIGIN = process.env.BLOB_PUBLIC_BASE; // ENV ZORUNLU
+const ORIGIN = process.env.BLOB_PUBLIC_BASE;
 
 export async function GET(
   _req: Request,
-  ctx: { params: Promise<{ path?: string[] }> } // Next.js 15: Promise tip
+  ctx: { params: Promise<{ path?: string[] }> }
 ) {
-  if (!ORIGIN) {
-    return new NextResponse("BLOB_PUBLIC_BASE not set", { status: 500 });
-  }
+  if (!ORIGIN) return new NextResponse("BLOB_PUBLIC_BASE not set", { status: 500 });
 
   const { path } = await ctx.params;
-  const key = (path || []).join("/"); // ["blog", "xxx.png"] -> "blog/xxx.png"
+  const key = (path || []).join("/"); // ["blog","file.png"] -> "blog/file.png"
   if (!key) return new NextResponse("Not Found", { status: 404 });
 
   const upstream = await fetch(`${ORIGIN}/${encodeURI(key)}`);
