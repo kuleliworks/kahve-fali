@@ -1,18 +1,17 @@
 import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/seo";
+import { redis } from "@/lib/redis";
 
-// Route davranışı
+// Nodejs runtime, önbellekli ama kısa aralıklı
 export const runtime = "nodejs";
+export const revalidate = 300; // 5 dk'da bir yeniden üret
+// static değil; ama build-time'a kilitlenmesin, revalidate çalışsın:
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
-// Upstash REST env'leri (Vercel > Settings > Environment Variables)
-const UP_URL   = process.env.UPSTASH_REDIS_REST_URL || "";
-const UP_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const TIME_BUDGET_MS = 1200;
 
 function baseUrl() {
-  const u = (SITE?.url || "https://www.kahvefalin.com").replace(/\/$/, "");
-  return u;
+  return (SITE?.url || "https://www.kahvefalin.com").replace(/\/$/, "");
 }
 
 function staticEntries(): MetadataRoute.Sitemap {
@@ -29,80 +28,58 @@ function staticEntries(): MetadataRoute.Sitemap {
   ];
 }
 
-function safeDate(input: unknown): Date {
+function safeDate(input?: unknown): Date {
   if (!input) return new Date();
   if (typeof input === "number") {
     const d = new Date(input);
-    if (!isNaN(d.getTime())) return d;
+    return isNaN(d.getTime()) ? new Date() : d;
   }
   if (typeof input === "string") {
     const n = Number(input);
     const d = isNaN(n) ? new Date(input) : new Date(n);
-    if (!isNaN(d.getTime())) return d;
+    return isNaN(d.getTime()) ? new Date() : d;
   }
   return new Date();
 }
 
-async function upstashFetch<T>(path: string, body?: any, timeoutMs = 1500): Promise<T | null> {
-  if (!UP_URL || !UP_TOKEN) return null;
-
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort("timeout"), timeoutMs);
-
-  try {
-    const res = await fetch(`${UP_URL.replace(/\/$/, "")}${path}`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${UP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: body ? JSON.stringify(body) : "{}",
-      signal: ac.signal,
-      // Vercel edge/node cache'ine takılmasın:
-      cache: "no-store",
-    });
-    clearTimeout(t);
-    if (!res.ok) return null;
-    const json = (await res.json()) as any;
-    return (json?.result ?? null) as T | null;
-  } catch {
-    clearTimeout(t);
-    return null;
-  }
+function wait(ms: number) {
+  return new Promise<void>((res) => setTimeout(res, ms));
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const b = baseUrl();
   const base = staticEntries();
 
-  // Env yoksa direkt statik
-  if (!UP_URL || !UP_TOKEN) return base;
+  // Tüm Redis işini tek bir yarışa sok: ya 1.2 sn içinde biter, ya da statik döneriz
+  try {
+    const job = (async () => {
+      // En yeni -> en eski. En fazla 50 kayıt (performans + deterministik süre)
+      const slugs = await redis.zrange("blog:index", 0, 49, { rev: true });
+      if (!Array.isArray(slugs) || slugs.length === 0) return [] as MetadataRoute.Sitemap;
 
-  // 1) Slug listesini al (en eski→en yeni geliyor; tersine çevir)
-  const slugs = (await upstashFetch<string[]>("/zrange/blog:index/0/-1")) || [];
-  const newestFirst = slugs.slice().reverse();
+      const rows = await Promise.all(
+        slugs.map(async (slug) => {
+          const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
+          if (!it) return null;
+          const lm = safeDate(it.updatedAt || it.createdAt);
+          return {
+            url: `${b}/blog/${encodeURIComponent(slug)}`,
+            lastModified: lm,
+            changeFrequency: "weekly",
+            priority: 0.7,
+          } as MetadataRoute.Sitemap[number] | null;
+        })
+      );
 
-  // Çok büyümeyi engelle
-  const limited = newestFirst.slice(0, 2000);
+      return rows.filter(Boolean) as MetadataRoute.Sitemap;
+    })();
 
-  // 2) Her slug için hgetall
-  const entries: MetadataRoute.Sitemap = [];
-  await Promise.all(
-    limited.map(async (slug) => {
-      const key = `blog:post:${slug}`;
-      // Upstash REST: /hgetall/{key}
-      const it = await upstashFetch<Record<string, string>>(`/hgetall/${encodeURIComponent(key)}`);
-      if (!it) return;
+    const result = (await Promise.race([job, wait(TIME_BUDGET_MS).then(() => null)])) as
+      | MetadataRoute.Sitemap
+      | null;
 
-      const lm = safeDate(it.updatedAt ?? it.createdAt ?? undefined);
-      entries.push({
-        url: `${b}/blog/${encodeURIComponent(slug)}`,
-        lastModified: lm,
-        changeFrequency: "weekly",
-        priority: 0.7,
-      });
-    })
-  );
-
-  return [...base, ...entries];
+    return result ? [...base, ...result] : base;
+  } catch {
+    return base; // hiçbir durumda sayfa boşta dönmesin
+  }
 }
