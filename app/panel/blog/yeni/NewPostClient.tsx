@@ -8,7 +8,7 @@ type FormState = {
   title: string;
   slug: string;
   description?: string;
-  image?: string; // ← URL burada tutuluyor
+  image?: string;   // Upload sonrası public URL burada tutulur
   content?: string;
   status: "draft" | "pub";
 };
@@ -34,7 +34,7 @@ export default function NewPostClient() {
         title: d.title,
         slug: d.slug,
         description: d.description,
-        image: d.image,     // ← upload’dan gelen public URL
+        image: d.image,     // ← yüklenen görselin URL’i
         content: d.content,
         status: d.status,
       };
@@ -48,7 +48,6 @@ export default function NewPostClient() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || "Kayıt başarısız.");
 
-      // basit onay
       alert("Yazı eklendi.");
       router.push(`/blog/${d.slug}`);
     } catch (e: any) {
@@ -63,6 +62,7 @@ export default function NewPostClient() {
       <h1 className="text-2xl font-bold">Yeni Yazı</h1>
 
       <div className="mt-6 grid gap-4">
+        {/* Başlık */}
         <div>
           <label className="block text-sm font-medium">Başlık</label>
           <input
@@ -73,6 +73,7 @@ export default function NewPostClient() {
           />
         </div>
 
+        {/* Slug */}
         <div>
           <label className="block text-sm font-medium">Slug</label>
           <input
@@ -84,6 +85,7 @@ export default function NewPostClient() {
           <p className="mt-1 text-xs text-stone-500">Küçük harf ve tire kullan.</p>
         </div>
 
+        {/* Description */}
         <div>
           <label className="block text-sm font-medium">Açıklama</label>
           <input
@@ -94,18 +96,24 @@ export default function NewPostClient() {
           />
         </div>
 
+        {/* Görsel yükleme */}
         <div>
           <label className="block text-sm font-medium">Öne çıkan görsel</label>
           <div className="mt-1">
             <BlogImageUpload onDone={(url) => setD({ ...d, image: url })} />
             {d.image && (
-              <p className="mt-2 text-xs text-stone-600 break-all">
-                Kayıtlı URL: {d.image}
-              </p>
+              <>
+                <div className="mt-3 overflow-hidden rounded-xl ring-1 ring-stone-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={d.image} alt="Önizleme" className="h-40 w-full object-cover" />
+                </div>
+                <p className="mt-2 break-all text-xs text-stone-600">URL: {d.image}</p>
+              </>
             )}
           </div>
         </div>
 
+        {/* İçerik */}
         <div>
           <label className="block text-sm font-medium">İçerik</label>
           <textarea
@@ -116,12 +124,13 @@ export default function NewPostClient() {
           />
         </div>
 
+        {/* Durum */}
         <div>
           <label className="block text-sm font-medium">Durum</label>
           <select
             className="input mt-1"
             value={d.status}
-            onChange={(e) => setD({ ...d, status: e.target.value as any })}
+            onChange={(e) => setD({ ...d, status: e.target.value as "draft" | "pub" })}
           >
             <option value="draft">Taslak</option>
             <option value="pub">Yayınla</option>
