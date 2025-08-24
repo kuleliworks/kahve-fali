@@ -34,7 +34,7 @@ async function getPost(slug: string): Promise<Post | null> {
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
-  const { slug } = await params;                // <- ÖNEMLİ: await params
+  const { slug } = await params;
   const post = await getPost(slug);
   if (!post) {
     return {
@@ -66,10 +66,23 @@ export async function generateMetadata(
   };
 }
 
+/** sanitize-html izin listeleri (defaults KULLANMADAN) */
+const ALLOWED_TAGS = [
+  "p","h1","h2","h3","h4","strong","em","u","s","a","ul","ol","li",
+  "blockquote","code","pre","hr","br","img","figure","figcaption",
+  "table","thead","tbody","tr","th","td"
+];
+
+const ALLOWED_ATTR: Record<string, string[]> = {
+  a: ["href","name","target","rel"],
+  img: ["src","alt","title","width","height","loading"],
+  "*": ["class","id","style"]
+};
+
 export default async function Page(
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = await params;                // <- ÖNEMLİ: await params
+  const { slug } = await params;
   const post = await getPost(slug);
   if (!post) notFound();
 
@@ -77,21 +90,15 @@ export default async function Page(
   const dateStr = created ? created.toLocaleDateString("tr-TR") : "";
 
   const clean = sanitizeHtml(post.content || "", {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-      "img","figure","figcaption","h1","h2","h3","table","thead","tbody","tr","th","td"
-    ]),
-    allowedAttributes: {
-      a: ["href","name","target","rel"],
-      img: ["src","alt","title","width","height","loading"],
-      "*": ["class","id","style"]
-    },
+    allowedTags: ALLOWED_TAGS,
+    allowedAttributes: ALLOWED_ATTR,
     allowedSchemes: ["http","https","mailto"],
     transformTags: {
-      a: (tag, attribs) => ({
+      a: (_tag, attribs) => ({
         tagName: "a",
         attribs: { ...attribs, rel: "nofollow noopener", target: "_blank" },
       }),
-      img: (tag, attribs) => ({
+      img: (_tag, attribs) => ({
         tagName: "img",
         attribs: { ...attribs, loading: "lazy" },
       }),
