@@ -1,47 +1,39 @@
+// app/api/blog/upload/route.ts
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 
-const MAX_MB = 15;
+// İsteğe bağlı ama hızlı/uyumlu: Edge
+export const runtime = "edge";
 
-function extFrom(file: File) {
-  const name = file.name || "";
-  const byName = name.includes(".") ? "." + name.split(".").pop()!.toLowerCase() : "";
-  if (byName) return byName;
-  const map: Record<string,string> = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-    "image/heic": ".heic",
-    "image/heif": ".heif",
-  };
-  return map[file.type] || "";
-}
-
+// Sadece POST; tarayıcıda direkt GET ile açarsanız 405 görürsünüz — normal.
 export async function POST(req: Request) {
   try {
     const form = await req.formData();
-    const file = form.get("file") as File | null;
-    if (!file) {
-      return NextResponse.json({ ok:false, error: "file alanı zorunlu" }, { status: 400 });
+    const file = form.get("file");
+
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "Dosya bulunamadı" }, { status: 400 });
     }
 
-    const sizeMB = (file.size || 0) / (1024 * 1024);
-    if (sizeMB > MAX_MB) {
-      return NextResponse.json({ ok:false, error: `Dosya çok büyük. Maksimum ${MAX_MB}MB` }, { status: 413 });
-    }
+    // İsteğe bağlı: alt klasör ismi
+    const folder = String(form.get("folder") || "blog");
 
-    const ext = extFrom(file) || "";
-    const key = `blog/${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
+    // Basit isim üretimi
+    const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
+    const key = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
 
-    // File nesnesini doğrudan ver, public URL dönsün
+    // Vercel Blob'a public upload
+    // (Token otomatik bağlıysa options.token vermek zorunda değilsiniz)
     const { url } = await put(key, file, {
       access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN, // Vercel → Env Vars
+      contentType: file.type || "application/octet-stream",
     });
 
-    return NextResponse.json({ ok:true, url, key }, { status: 200 });
+    return NextResponse.json({ ok: true, url });
   } catch (e: any) {
-    return NextResponse.json({ ok:false, error: e?.message || "Upload hatası" }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message || "Yükleme hatası" },
+      { status: 500 }
+    );
   }
 }
