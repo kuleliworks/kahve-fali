@@ -1,59 +1,100 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Props = {
-  onUploaded?: (p: { url: string; key: string }) => void;
+  onDone: (url: string) => void;
 };
 
-export default function BlogImageUpload({ onUploaded }: Props) {
-  const [preview, setPreview] = useState<string>("");
+export default function BlogImageUpload({ onDone }: Props) {
+  const inp = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handlePick() {
+    inp.current?.click();
+  }
+
+  async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+
     setErr(null);
     setLoading(true);
 
+    // küçük önizleme
+    const url = URL.createObjectURL(f);
+    setPreview(url);
+
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", f);
 
-      const res = await fetch("/api/blog/upload", { method: "POST", body: fd });
-      const json = await res.json();
+      // 30sn timeout
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 30_000);
 
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Yükleme başarısız");
+      const res = await fetch("/api/blog/upload", {
+        method: "POST",
+        body: fd,
+        signal: ac.signal,
+      }).catch((e) => {
+        throw new Error(e?.name === "AbortError" ? "İstek zaman aşımına uğradı." : "Ağ hatası");
+      });
+
+      clearTimeout(t);
+
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        throw new Error("Sunucudan beklenen yanıt alınamadı.");
       }
 
-      // Önizlemede kırık görünmesin diye public URL’i öne alıyoruz
-      const finalPreview = json.publicUrl || json.url || (json.key ? `/media/${json.key}` : "");
-      setPreview(finalPreview);
-      onUploaded?.({ url: finalPreview, key: json.key || "" });
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Yükleme başarısız.");
+      }
+
+      // başarı
+      onDone(json.url);
     } catch (e: any) {
-      setErr(e?.message || "Yükleme sırasında bir hata oluştu");
+      setErr(e?.message || "Yükleme hatası");
+      setPreview(null);
     } finally {
       setLoading(false);
+      // input'u resetle ki aynı dosyayı tekrar seçebil
+      if (inp.current) inp.current.value = "";
     }
   }
 
   return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium">Öne çıkarılan görsel</label>
+    <div>
       <input
+        ref={inp}
+        className="sr-only"
         type="file"
         accept="image/*"
-        onChange={onFileChange}
-        className="input"
+        onChange={onChange}
       />
-      {loading && <div className="text-sm text-stone-600">Yükleniyor…</div>}
-      {err && <div className="text-sm text-red-600">{err}</div>}
+
+      <button
+        type="button"
+        onClick={handlePick}
+        className="btn btn-ghost"
+        disabled={loading}
+      >
+        {loading ? "Yükleniyor…" : "Öne çıkan görseli yükle"}
+      </button>
+
       {preview && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={preview} alt="Önizleme" className="mt-2 h-32 w-56 rounded-lg object-cover ring-1 ring-stone-200" />
+        <div className="mt-3 overflow-hidden rounded-xl ring-1 ring-stone-200">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={preview} alt="Önizleme" className="h-40 w-full object-cover" />
+        </div>
       )}
+
+      {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
     </div>
   );
 }
