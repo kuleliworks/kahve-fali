@@ -23,6 +23,7 @@ export default function NewPostClient() {
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<"draft" | "pub">("draft");
 
+  // Görsel için hem public önizleme (imageUrl) hem de /media key (imageKey)
   const [imageUrl, setImageUrl] = useState("");
   const [imageKey, setImageKey] = useState("");
 
@@ -31,7 +32,6 @@ export default function NewPostClient() {
   const [done, setDone] = useState<{slug: string} | null>(null);
 
   const router = useRouter();
-
   const finalSlug = slug || slugify(title);
 
   async function onSubmit() {
@@ -46,8 +46,8 @@ export default function NewPostClient() {
         title,
         slug: finalSlug,
         description,
-        image: imageUrl,   // fallback
-        imageKey,          // kendi domainin için /media anahtar
+        image: imageUrl, // fallback tam URL
+        imageKey,        // /media için key
         content,
         status
       });
@@ -74,22 +74,50 @@ export default function NewPostClient() {
       <h1 className="text-2xl font-semibold">Yeni Yazı</h1>
 
       <div className="mt-4 grid gap-4">
-        <input className="input" placeholder="Başlık" value={title} onChange={(e)=>setTitle(e.target.value)} />
-        <input className="input" placeholder="Slug (opsiyonel)" value={slug} onChange={(e)=>setSlug(slugify(e.target.value))} />
-        <textarea className="input h-28" placeholder="Kısa açıklama" value={description} onChange={(e)=>setDescription(e.target.value)} />
+        <input
+          className="input"
+          placeholder="Başlık"
+          value={title}
+          onChange={(e)=>setTitle(e.target.value)}
+        />
 
-        <BlogImageUpload onUploaded={({ url, key }) => { setImageUrl(url); setImageKey(key); }} />
+        <input
+          className="input"
+          placeholder="Slug (opsiyonel)"
+          value={slug}
+          onChange={(e)=>setSlug(slugify(e.target.value))}
+        />
+
+        <textarea
+          className="input h-28"
+          placeholder="Kısa açıklama"
+          value={description}
+          onChange={(e)=>setDescription(e.target.value)}
+        />
+
+        {/* Görsel yükleme */}
+        <BlogImageUpload
+          onUploaded={({ url, key }) => { setImageUrl(url); setImageKey(key); }}
+        />
 
         <div className="mt-2">
           <label className="block text-sm font-medium">Durum</label>
-          <select className="input" value={status} onChange={(e)=>setStatus(e.target.value as any)}>
+          <select
+            className="input"
+            value={status}
+            onChange={(e)=>setStatus(e.target.value as any)}
+          >
             <option value="draft">Taslak</option>
             <option value="pub">Yayınla</option>
           </select>
         </div>
 
-        <textarea className="input h-64" placeholder="İçerik (HTML veya markdown — tekil sayfada sanitize edilecek)"
-          value={content} onChange={(e)=>setContent(e.target.value)} />
+        <textarea
+          className="input h-64"
+          placeholder="İçerik (HTML veya markdown — tekil sayfada sanitize edilecek)"
+          value={content}
+          onChange={(e)=>setContent(e.target.value)}
+        />
 
         {err && <div className="text-sm text-red-600">{err}</div>}
 
@@ -98,15 +126,22 @@ export default function NewPostClient() {
             <button className="btn btn-primary" onClick={onSubmit} disabled={busy}>
               {busy ? "Kaydediliyor…" : "Kaydet"}
             </button>
+            <button className="btn btn-ghost" onClick={()=>router.push("/panel/blog")}>Panele dön</button>
           </div>
         ) : (
           <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4">
             <div className="font-medium">İçerik kaydedildi.</div>
             <div className="mt-3 flex gap-3">
               <a className="btn btn-primary" href={`/blog/${done.slug}`}>Yazıyı Gör</a>
-              <button className="btn btn-ghost" onClick={()=>{
-                setTitle(""); setSlug(""); setDescription(""); setContent(""); setImageUrl(""); setImageKey(""); setStatus("draft"); setDone(null);
-              }}>Yeni Yazı Ekle</button>
+              <button
+                className="btn btn-ghost"
+                onClick={()=>{
+                  setTitle(""); setSlug(""); setDescription(""); setContent("");
+                  setImageUrl(""); setImageKey(""); setStatus("draft"); setDone(null);
+                }}
+              >
+                Yeni Yazı Ekle
+              </button>
               <a className="btn btn-ghost" href="/panel/blog">Panele Dön</a>
             </div>
           </div>
