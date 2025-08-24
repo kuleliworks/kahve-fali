@@ -1,168 +1,152 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import { redis } from "@/lib/redis";
 import Link from "next/link";
+
+// Panel listesi her zaman taze olsun
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 type Row = {
   slug: string;
-  title: string;
-  status: "draft" | "pub" | "scheduled" | string;
-  createdAt?: string;
-  updatedAt?: string;
-  publishAt?: string;
-  image?: string;
+  title?: string;
   description?: string;
+  image?: string;
+  status?: "draft" | "pub";
+  createdAt?: string; // ms string olabilir
 };
 
-export default function BlogPanelPage() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [bulk, setBulk] = useState<"delete" | "publish" | "draft" | "">("");
+async function getAllRows(): Promise<Row[]> {
+  // Public listelemede kullandığımızla aynı index: blog:index
+  // Yeni -> eski
+  const slugs =
+    (await redis.zrange<string>("blog:index", 0, -1, { rev: true })) || [];
 
-  async function load() {
-    const res = await fetch("/api/panel/blog/admin-list", { cache: "no-store" });
-    const json = await res.json();
-    setRows(json.items || []);
-    setSelected({});
-  }
-
-  useEffect(() => { load(); }, []);
-
-  const allChecked = rows.length > 0 && rows.every(r => selected[r.slug]);
-  const anyChecked = rows.some(r => selected[r.slug]);
-
-  function toggleAll(val: boolean) {
-    const next: Record<string, boolean> = {};
-    for (const r of rows) next[r.slug] = val;
-    setSelected(next);
-  }
-
-  async function doBulk() {
-    if (!bulk) return;
-    const slugs = rows.filter(r => selected[r.slug]).map(r => r.slug);
-    if (slugs.length === 0) return;
-
-    if (bulk === "delete") {
-      if (!confirm(`Seçili ${slugs.length} yazı silinsin mi?`)) return;
-    }
-
-    const res = await fetch("/api/panel/blog/bulk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: bulk, slugs }),
+  const rows: Row[] = [];
+  for (const slug of slugs) {
+    const it = await redis.hgetall<Record<string, string>>(
+      `blog:post:${slug}`
+    );
+    if (!it) continue;
+    rows.push({
+      slug,
+      title: it.title,
+      description: it.description,
+      image: it.image,
+      status: (it.status as any) || "pub",
+      createdAt: it.createdAt,
     });
-    const json = await res.json();
-    if (!json.ok) {
-      alert(json.error || "İşlem başarısız");
-      return;
-    }
-    await load();
-    setBulk("");
   }
+  return rows;
+}
 
-  function fmt(t?: string) {
-    if (!t) return "";
-    const n = Number(t);
-    if (!Number.isFinite(n)) return "";
+function fmtDate(ms?: string) {
+  if (!ms) return "-";
+  const n = Number(ms);
+  if (!Number.isFinite(n)) return "-";
+  try {
     return new Date(n).toLocaleString("tr-TR");
+  } catch {
+    return "-";
   }
+}
 
-  function StatusChip({ s }: { s: Row["status"] }) {
-    const map: Record<string, string> = {
-      pub: "bg-green-100 text-green-700",
-      draft: "bg-stone-100 text-stone-700",
-      scheduled: "bg-amber-100 text-amber-700",
-    };
-    return <span className={`rounded-full px-2.5 py-1 text-xs ${map[s] || "bg-stone-100 text-stone-700"}`}>{s}</span>;
-  }
+export default async function Page() {
+  const items = await getAllRows();
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Blog Yönetimi</h1>
+        <h1 className="text-2xl font-bold">Blog Yönetimi</h1>
         <Link href="/panel/blog/yeni" className="btn btn-primary">
           + Yeni Yazı
         </Link>
       </div>
 
-      {/* bulk aksiyon */}
-      <div className="mb-3 flex items-center gap-3">
-        <select className="input w-56" value={bulk} onChange={(e) => setBulk(e.target.value as any)}>
-          <option value="">Toplu işlem seç</option>
-          <option value="publish">Yayımla</option>
-          <option value="draft">Taslağa al</option>
-          <option value="delete">Sil</option>
-        </select>
-        <button className="btn btn-primary" onClick={doBulk} disabled={!bulk || !anyChecked}>
-          Uygula
-        </button>
-        <div className="text-sm text-stone-600">{anyChecked ? `${Object.values(selected).filter(Boolean).length} seçili` : ""}</div>
-      </div>
-
-      <div className="overflow-x-auto rounded-2xl border border-stone-200">
-        <table className="min-w-full text-sm">
-          <thead className="bg-stone-50">
-            <tr>
-              <th className="p-3 w-12">
-                <input type="checkbox" checked={allChecked} onChange={(e) => toggleAll(e.target.checked)} />
-              </th>
-              <th className="p-3">Başlık</th>
-              <th className="p-3">Slug</th>
-              <th className="p-3">Durum</th>
-              <th className="p-3">Yayımlanma</th>
-              <th className="p-3">Güncelleme</th>
-              <th className="p-3 w-40">İşlemler</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.slug} className="border-t">
-                <td className="p-3">
-                  <input
-                    type="checkbox"
-                    checked={!!selected[r.slug]}
-                    onChange={(e) => setSelected({ ...selected, [r.slug]: e.target.checked })}
-                  />
-                </td>
-                <td className="p-3">
-                  <div className="line-clamp-2 font-medium">{r.title}</div>
-                  <div className="text-xs text-stone-500 line-clamp-1">{r.description}</div>
-                </td>
-                <td className="p-3 text-stone-600">{r.slug}</td>
-                <td className="p-3"><StatusChip s={r.status} /></td>
-                <td className="p-3">{r.publishAt ? fmt(r.publishAt) : r.status === "pub" ? fmt(r.createdAt) : "-"}</td>
-                <td className="p-3">{fmt(r.updatedAt)}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <a className="btn btn-ghost" href={`/blog/${r.slug}`} target="_blank" rel="noopener">Görüntüle</a>
-                    <Link className="btn btn-ghost" href={`/panel/blog/yeni?edit=${encodeURIComponent(r.slug)}`}>Düzenle</Link>
-                    <button
-                      className="btn btn-ghost text-red-600"
-                      onClick={async () => {
-                        if (!confirm(`"${r.title}" silinsin mi?`)) return;
-                        await fetch("/api/panel/blog/bulk", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ action: "delete", slugs: [r.slug] }),
-                        });
-                        load();
-                      }}
-                    >
-                      Sil
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-
-            {rows.length === 0 && (
+      {items.length === 0 ? (
+        <div className="k-card">
+          <p>Henüz yazı bulunmuyor.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl ring-1 ring-stone-200">
+          <table className="min-w-full divide-y divide-stone-200 bg-white">
+            <thead className="bg-stone-50">
               <tr>
-                <td className="p-6 text-center text-stone-600" colSpan={7}>Henüz içerik yok.</td>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-stone-600">
+                  Görsel
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-stone-600">
+                  Başlık
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-stone-600">
+                  Durum
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-stone-600">
+                  Tarih
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-stone-600">
+                  İşlemler
+                </th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {items.map((it) => (
+                <tr key={it.slug} className="hover:bg-stone-50/60">
+                  <td className="px-4 py-3">
+                    {it.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={it.image}
+                        alt=""
+                        className="h-12 w-16 rounded-lg object-cover ring-1 ring-stone-200"
+                      />
+                    ) : (
+                      <div className="h-12 w-16 rounded-lg bg-stone-100 ring-1 ring-stone-200" />
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{it.title || it.slug}</div>
+                    <div className="text-xs text-stone-500 break-all">
+                      /blog/{it.slug}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        it.status === "pub"
+                          ? "bg-green-50 text-green-700 ring-1 ring-green-200"
+                          : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                      }`}
+                    >
+                      {it.status === "pub" ? "Yayınlandı" : "Taslak"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-stone-700">
+                    {fmtDate(it.createdAt)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <Link
+                        href={`/blog/${it.slug}`}
+                        className="btn btn-ghost"
+                        title="Görüntüle"
+                      >
+                        Görüntüle
+                      </Link>
+                      <Link
+                        href={`/panel/blog/duzenle/${it.slug}`}
+                        className="btn btn-ghost"
+                        title="Düzenle"
+                      >
+                        Düzenle
+                      </Link>
+                      {/* Silme için isterseniz ileride server action veya bir API çağrısı ekleriz */}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
