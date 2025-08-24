@@ -3,14 +3,16 @@ import { NextResponse } from "next/server";
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
-const ORIGIN =
-  process.env.BLOB_PUBLIC_BASE ||
-  "https://8jwfpfe0yekztwdc.public.blob.vercel-storage.com";
+const ORIGIN = process.env.BLOB_PUBLIC_BASE; // <- env ZORUNLU
 
 export async function GET(
   _req: Request,
-  ctx: { params: Promise<{ path?: string[] }> } // optional catch-all
+  ctx: { params: Promise<{ path?: string[] }> } // optional catch-all + Promise tip
 ) {
+  if (!ORIGIN) {
+    return new NextResponse("BLOB_PUBLIC_BASE not set", { status: 500 });
+  }
+
   const { path } = await ctx.params;
   const key = (path || []).join("/");
   if (!key) return new NextResponse("Not Found", { status: 404 });
