@@ -11,7 +11,7 @@ type Post = {
   title: string;
   slug: string;
   description?: string;
-  image?: string;     // <- ÖNEMLİ
+  image?: string;
   content?: string;
   status?: string;
   createdAt?: string;
@@ -24,16 +24,24 @@ async function getPost(slug: string): Promise<Post | null> {
     title: it.title || slug,
     slug,
     description: it.description || "",
-    image: it.image || "",     // <- ÖNEMLİ
+    image: it.image || "",
     content: it.content || "",
     status: it.status || "draft",
     createdAt: it.createdAt || "",
   };
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const post = await getPost(params.slug);
-  if (!post) return { title: "Bulunamadı" };
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const { slug } = await params;                // <- ÖNEMLİ: await params
+  const post = await getPost(slug);
+  if (!post) {
+    return {
+      title: "Bulunamadı | Sanal Kahve Falı",
+      description: SITE.description,
+    };
+  }
 
   const ogImg = post.image || `${SITE.url}/resim/sanal-kahve-fali-x2.png`;
 
@@ -47,6 +55,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       title: post.title,
       description: post.description || SITE.description,
       images: [{ url: ogImg }],
+      siteName: SITE.name,
     },
     twitter: {
       card: "summary_large_image",
@@ -57,8 +66,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function Page({ params }: { params: { slug: string } }) {
-  const post = await getPost(params.slug);
+export default async function Page(
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;                // <- ÖNEMLİ: await params
+  const post = await getPost(slug);
   if (!post) notFound();
 
   const created = post.createdAt ? new Date(Number(post.createdAt)) : null;
@@ -86,11 +98,10 @@ export default async function Page({ params }: { params: { slug: string } }) {
     },
   });
 
-  const hero = post.image || "/resim/sanal-kahve-fali-x2.png"; // <- ÖNEMLİ
+  const hero = post.image || "/resim/sanal-kahve-fali-x2.png";
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-10 lg:max-w-4xl">
-      {/* Hero görsel */}
       <div className="overflow-hidden rounded-2xl ring-1 ring-stone-200">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={hero} alt={post.title} className="h-64 w-full object-cover sm:h-80" />
