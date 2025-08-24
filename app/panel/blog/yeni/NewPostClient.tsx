@@ -1,193 +1,133 @@
 "use client";
 
 import { useState } from "react";
-import BlogImageUpload from "@/components/BlogImageUpload";
 import { useRouter } from "next/navigation";
+import BlogImageUpload from "@/components/BlogImageUpload";
 
-type Status = "draft" | "pub";
-
-function toSlug(s: string) {
-  // Türkçe karakterleri ascii'ye çevir + normalize
-  const map: Record<string, string> = {
-    ç: "c",
-    Ç: "c",
-    ğ: "g",
-    Ğ: "g",
-    ı: "i",
-    İ: "i",
-    ö: "o",
-    Ö: "o",
-    ş: "s",
-    Ş: "s",
-    ü: "u",
-    Ü: "u",
-  };
-  const replaced = s
-    .split("")
-    .map((ch) => map[ch] ?? ch)
-    .join("");
-  return replaced
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
-}
+type Draft = {
+  title: string;
+  slug: string;
+  description: string;
+  image: string;    // <- ÖNEMLİ
+  content: string;
+  status: "draft" | "pub";
+};
 
 export default function NewPostClient() {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  const [description, setDescription] = useState("");
-  const [image, setImage] = useState<string | undefined>(undefined);
-  const [content, setContent] = useState("");
-  const [status, setStatus] = useState<Status>("draft");
-
+  const [d, setD] = useState<Draft>({
+    title: "",
+    slug: "",
+    description: "",
+    image: "",          // <- ÖNEMLİ
+    content: "",
+    status: "draft",
+  });
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const finalSlug = slug ? toSlug(slug) : toSlug(title);
 
   async function onSave() {
-    setErr(null);
     setSaving(true);
     try {
-      if (!title.trim()) throw new Error("Başlık gerekli");
-      if (!finalSlug) throw new Error("Slug üretilemedi (başlık/slug gerekli)");
+      // slug boşsa otomatik üret
+      const base =
+        d.slug ||
+        d.title
+          .toLowerCase()
+          .normalize("NFKD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/ı/g, "i")
+          .replace(/ğ/g, "g")
+          .replace(/ü/g, "u")
+          .replace(/ş/g, "s")
+          .replace(/ö/g, "o")
+          .replace(/ç/g, "c")
+          .replace(/[^a-z0-9\- ]/g, "")
+          .trim()
+          .replace(/\s+/g, "-");
+      const slug = base || `yazi-${Date.now()}`;
 
       const res = await fetch("/api/blog/new", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // önemli: image alanı burada string URL
         body: JSON.stringify({
-          title,
-          slug: finalSlug,
-          description,
-          image,
-          content,
-          status,
+          title: d.title,
+          slug,
+          description: d.description,
+          image: d.image,      // <- ÖNEMLİ: image alanı JSON’a giriyor
+          content: d.content,
+          status: d.status,
         }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Kayıt başarısız");
 
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `HTTP ${res.status}`);
+      // İsteğe bağlı: alert + nereye gitsin?
+      if (confirm("Yazı eklendi. Görüntülemek ister misin?")) {
+        router.push(`/blog/${slug}`);
+      } else {
+        router.push(`/panel/blog`);
       }
-      const json = await res.json().catch(() => ({} as any));
-      // Eklendikten sonra yönlendirme yerine bildirim göster + seçenek sun
-      if (json?.ok) {
-        if (confirm("Yazı kaydedildi. Görüntülemek ister misiniz?")) {
-          router.push(`/blog/${finalSlug}`);
-        } else {
-          // formu sıfırla, yeni ekleme yap
-          setTitle("");
-          setSlug("");
-          setDescription("");
-          setImage(undefined);
-          setContent("");
-          setStatus("draft");
-        }
-        return;
-      }
-      throw new Error(json?.error || "Kayıt başarısız");
     } catch (e: any) {
-      setErr(e?.message || "Kayıt sırasında hata oluştu.");
+      alert(e?.message || "Hata");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!saving) onSave();
-      }}
-      className="space-y-4"
-    >
-      {/* Başlık */}
-      <div>
-        <label className="block text-sm font-medium">Başlık</label>
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <h1 className="text-2xl font-semibold">Yeni Yazı</h1>
+
+      <div className="mt-6 space-y-4">
         <input
-          className="input mt-1"
-          placeholder="Örn: Kahve Falında Yılan Görmek"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          className="input w-full"
+          placeholder="Başlık"
+          value={d.title}
+          onChange={(e) => setD({ ...d, title: e.target.value })}
         />
-      </div>
 
-      {/* Slug */}
-      <div>
-        <label className="block text-sm font-medium">Slug</label>
         <input
-          className="input mt-1"
-          placeholder="ornegin: kahve-falinda-yilan-gormek"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value)}
+          className="input w-full"
+          placeholder="Slug (opsiyonel)"
+          value={d.slug}
+          onChange={(e) => setD({ ...d, slug: e.target.value })}
         />
-        <div className="mt-1 text-xs text-stone-500">/blog/{finalSlug || "-"}</div>
-      </div>
 
-      {/* Kısa açıklama */}
-      <div>
-        <label className="block text-sm font-medium">Kısa açıklama</label>
         <textarea
-          className="input mt-1 h-24"
-          placeholder="Arama sonuçlarında görünecek özet"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          className="input w-full h-24"
+          placeholder="Kısa açıklama (description)"
+          value={d.description}
+          onChange={(e) => setD({ ...d, description: e.target.value })}
         />
-      </div>
 
-      {/* Görsel yükleme */}
-      <div>
-        <label className="block text-sm font-medium">Öne çıkarılan görsel</label>
-        <div className="mt-1">
-          <BlogImageUpload onDone={(url) => setImage(url)} />
-        </div>
-        {image && (
-          <div className="mt-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={image}
-              alt="Seçilen görsel"
-              className="h-28 w-40 rounded-xl object-cover ring-1 ring-stone-200"
-            />
-          </div>
-        )}
-      </div>
+        {/* Görsel yükleme (URL state’e otomatik yazılır) */}
+        <BlogImageUpload
+          value={d.image}
+          onDone={(url) => setD({ ...d, image: url })}
+        />
 
-      {/* İçerik */}
-      <div>
-        <label className="block text-sm font-medium">İçerik (HTML/Markdown düz yazı)</label>
         <textarea
-          className="input mt-1 h-64"
-          placeholder="İçeriği yazın…"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
+          className="input w-full h-64"
+          placeholder="İçerik (HTML veya markdown — siz nasıl okuyorsanız)"
+          value={d.content}
+          onChange={(e) => setD({ ...d, content: e.target.value })}
         />
-      </div>
 
-      {/* Durum */}
-      <div>
-        <label className="block text-sm font-medium">Durum</label>
         <select
-          className="input mt-1"
-          value={status}
-          onChange={(e) => setStatus(e.target.value as Status)}
+          className="input"
+          value={d.status}
+          onChange={(e) => setD({ ...d, status: e.target.value as Draft["status"] })}
         >
           <option value="draft">Taslak</option>
           <option value="pub">Yayınla</option>
         </select>
-      </div>
 
-      {err && <div className="text-sm text-red-600">{err}</div>}
-
-      <div className="pt-2">
-        <button type="submit" disabled={saving} className="btn btn-primary">
-          {saving ? "Kaydediliyor…" : "Kaydet"}
-        </button>
+        <div className="pt-3">
+          <button className="btn btn-primary" disabled={saving} onClick={onSave}>
+            {saving ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+        </div>
       </div>
-    </form>
+    </div>
   );
 }
