@@ -2,10 +2,8 @@ import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/seo";
 import { redis } from "@/lib/redis";
 
-// Nodejs runtime, önbellekli ama kısa aralıklı
 export const runtime = "nodejs";
-export const revalidate = 300; // 5 dk'da bir yeniden üret
-// static değil; ama build-time'a kilitlenmesin, revalidate çalışsın:
+export const revalidate = 300; // 5 dk
 export const dynamic = "force-dynamic";
 
 const TIME_BUDGET_MS = 1200;
@@ -33,7 +31,7 @@ function safeDate(input?: unknown): Date {
   if (typeof input === "number") {
     const d = new Date(input);
     return isNaN(d.getTime()) ? new Date() : d;
-  }
+    }
   if (typeof input === "string") {
     const n = Number(input);
     const d = isNaN(n) ? new Date(input) : new Date(n);
@@ -50,24 +48,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const b = baseUrl();
   const base = staticEntries();
 
-  // Tüm Redis işini tek bir yarışa sok: ya 1.2 sn içinde biter, ya da statik döneriz
   try {
     const job = (async () => {
-      // En yeni -> en eski. En fazla 50 kayıt (performans + deterministik süre)
-      const slugs = await redis.zrange("blog:index", 0, 49, { rev: true });
-      if (!Array.isArray(slugs) || slugs.length === 0) return [] as MetadataRoute.Sitemap;
+      // Upstash TS tipleri 'unknown[]' döndürebilir; güvenli string'e map’le
+      const raw = await redis.zrange("blog:index", 0, 49, { rev: true } as any);
+      const slugs: string[] = Array.isArray(raw) ? raw.map((s: any) => String(s)) : [];
+      if (slugs.length === 0) return [] as MetadataRoute.Sitemap;
 
       const rows = await Promise.all(
         slugs.map(async (slug) => {
           const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
           if (!it) return null;
           const lm = safeDate(it.updatedAt || it.createdAt);
+          const loc = `${b}/blog/${encodeURIComponent(slug)}`;
           return {
-            url: `${b}/blog/${encodeURIComponent(slug)}`,
+            url: loc,
             lastModified: lm,
             changeFrequency: "weekly",
             priority: 0.7,
-          } as MetadataRoute.Sitemap[number] | null;
+          } as MetadataRoute.Sitemap[number];
         })
       );
 
@@ -80,6 +79,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     return result ? [...base, ...result] : base;
   } catch {
-    return base; // hiçbir durumda sayfa boşta dönmesin
+    return base;
   }
 }
