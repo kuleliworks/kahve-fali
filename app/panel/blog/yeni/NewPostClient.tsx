@@ -96,9 +96,8 @@ export default function NewPostClient() {
         />
 
         {/* Görsel yükleme */}
-        <BlogImageUpload
-          onUploaded={({ url, key }) => { setImageUrl(url); setImageKey(key); }}
-        />
+<BlogImageUpload onDone={(url) => setD({ ...d, image: url })} />
+
 
         <div className="mt-2">
           <label className="block text-sm font-medium">Durum</label>
