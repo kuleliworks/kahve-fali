@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 
-export default function BlogImageUpload({
-  value,
-  onDone,
-}: {
+type Props = {
+  /** Varsa mevcut görsel URL’i (düzenleme ekranında önizleme için) */
   value?: string;
+  /** Yükleme başarılı olduğunda üst forma URL’i döner (kendi domainin /media/...) */
   onDone: (url: string) => void;
-}) {
+};
+
+export default function BlogImageUpload({ value, onDone }: Props) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | undefined>(value);
@@ -21,19 +22,26 @@ export default function BlogImageUpload({
     try {
       const fd = new FormData();
       fd.append("file", f);
-      const res = await fetch("/api/blog/upload", { method: "POST", body: fd });
+
+      const res = await fetch("/api/blog/upload", {
+        method: "POST",
+        body: fd,
+      });
+
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.ok || !json?.url) {
+      if (!res.ok || !json?.ok || !(json.publicUrl || json.url)) {
         throw new Error(json?.error || "Yükleme başarısız");
       }
-      onDone(json.url);
-      setPreview(json.url);
+
+      const final = json.publicUrl || json.url; // kendi domaininden /media/... varsa onu kullan
+      onDone(final);
+      setPreview(final);
     } catch (e: any) {
       setErr(e?.message || "Yükleme hatası");
     } finally {
       setBusy(false);
-      // aynı dosyayı tekrar seçebilsin
-      e.target.value = "";
+      // Aynı dosyayı tekrar seçebilsin
+      e.currentTarget.value = "";
     }
   }
 
@@ -71,6 +79,9 @@ export default function BlogImageUpload({
       )}
 
       {err && <p className="text-sm text-red-600">{err}</p>}
+      <p className="text-xs text-stone-500">
+        Desteklenen: JPG/PNG/WebP (öneri ≤ 12MB). Yükleme sonrası URL otomatik eklenir.
+      </p>
     </div>
   );
 }
