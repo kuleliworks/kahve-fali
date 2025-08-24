@@ -4,71 +4,97 @@ import { useRef, useState } from "react";
 
 type Props = {
   onDone: (url: string) => void;
+  className?: string;
 };
 
-export default function BlogImageUpload({ onDone }: Props) {
+export default function BlogImageUpload({ onDone, className }: Props) {
   const inp = useRef<HTMLInputElement | null>(null);
-  const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  function pick() {
-    inp.current?.click();
-  }
-
-  async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-
+  async function upload(file: File) {
     setErr(null);
-    setLoading(true);
-    setPreview(URL.createObjectURL(f));
-
+    setBusy(true);
     try {
-      const fd = new FormData();
-      fd.append("file", f);
+      // Basit boyut kontrolü (örn. 15MB)
+      const max = 15 * 1024 * 1024;
+      if (file.size > max) {
+        throw new Error("Dosya çok büyük (maks. 15MB).");
+      }
 
-      const ac = new AbortController();
-      const t = setTimeout(() => ac.abort(), 30_000);
+      // Önizleme
+      setPreview(URL.createObjectURL(file));
+
+      // Sunucuya multipart gönder
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("filename", file.name);
+
+      // 45sn timeout
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 45000);
 
       const res = await fetch("/api/blog/upload", {
         method: "POST",
         body: fd,
-        signal: ac.signal,
+        signal: ctrl.signal,
       }).catch((e) => {
-        throw new Error(e?.name === "AbortError" ? "İstek zaman aşımına uğradı." : "Ağ hatası");
+        throw new Error(e?.name === "AbortError" ? "İstek zaman aşımına uğradı." : "Yükleme başarısız.");
       });
 
-      clearTimeout(t);
+      clearTimeout(to);
 
-      let json: any = null;
-      try { json = await res.json(); } catch { throw new Error("Sunucudan beklenen yanıt alınamadı."); }
-
-      if (!res.ok || !json?.ok) throw new Error(json?.error || "Yükleme başarısız.");
-
-      onDone(json.url); // ← Vercel Blob public URL
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      if (!json?.url) throw new Error("Sunucu geçersiz yanıt verdi.");
+      onDone(json.url);
     } catch (e: any) {
-      setErr(e?.message || "Yükleme hatası");
-      setPreview(null);
+      setErr(e?.message || "Yükleme sırasında hata oluştu.");
     } finally {
-      setLoading(false);
-      if (inp.current) inp.current.value = "";
+      setBusy(false);
     }
   }
 
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (f) upload(f);
+  }
+
   return (
-    <div>
-      <input ref={inp} className="sr-only" type="file" accept="image/*" onChange={onChange} />
-      <button type="button" className="btn btn-ghost" onClick={pick} disabled={loading}>
-        {loading ? "Yükleniyor…" : "Öne çıkan görseli yükle"}
-      </button>
+    <div className={className}>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => inp.current?.click()}
+          className="btn btn-ghost"
+          disabled={busy}
+        >
+          {busy ? "Yükleniyor…" : "Görsel seç"}
+        </button>
+        <input
+          ref={inp}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={onPick}
+        />
+        {err && <span className="text-sm text-red-600">{err}</span>}
+      </div>
+
       {preview && (
-        <div className="mt-3 overflow-hidden rounded-xl ring-1 ring-stone-200">
+        <div className="mt-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="Önizleme" className="h-40 w-full object-cover" />
+          <img
+            src={preview}
+            alt="Önizleme"
+            className="h-28 w-40 rounded-xl object-cover ring-1 ring-stone-200"
+          />
         </div>
       )}
-      {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
     </div>
   );
 }
