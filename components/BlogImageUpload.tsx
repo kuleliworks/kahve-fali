@@ -12,7 +12,7 @@ export default function BlogImageUpload({ onDone }: Props) {
   const [preview, setPreview] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  async function handlePick() {
+  function pick() {
     inp.current?.click();
   }
 
@@ -22,16 +22,12 @@ export default function BlogImageUpload({ onDone }: Props) {
 
     setErr(null);
     setLoading(true);
-
-    // küçük önizleme
-    const url = URL.createObjectURL(f);
-    setPreview(url);
+    setPreview(URL.createObjectURL(f));
 
     try {
       const fd = new FormData();
       fd.append("file", f);
 
-      // 30sn timeout
       const ac = new AbortController();
       const t = setTimeout(() => ac.abort(), 30_000);
 
@@ -46,54 +42,32 @@ export default function BlogImageUpload({ onDone }: Props) {
       clearTimeout(t);
 
       let json: any = null;
-      try {
-        json = await res.json();
-      } catch {
-        throw new Error("Sunucudan beklenen yanıt alınamadı.");
-      }
+      try { json = await res.json(); } catch { throw new Error("Sunucudan beklenen yanıt alınamadı."); }
 
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Yükleme başarısız.");
-      }
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Yükleme başarısız.");
 
-      // başarı
-      onDone(json.url);
+      onDone(json.url); // ← Vercel Blob public URL
     } catch (e: any) {
       setErr(e?.message || "Yükleme hatası");
       setPreview(null);
     } finally {
       setLoading(false);
-      // input'u resetle ki aynı dosyayı tekrar seçebil
       if (inp.current) inp.current.value = "";
     }
   }
 
   return (
     <div>
-      <input
-        ref={inp}
-        className="sr-only"
-        type="file"
-        accept="image/*"
-        onChange={onChange}
-      />
-
-      <button
-        type="button"
-        onClick={handlePick}
-        className="btn btn-ghost"
-        disabled={loading}
-      >
+      <input ref={inp} className="sr-only" type="file" accept="image/*" onChange={onChange} />
+      <button type="button" className="btn btn-ghost" onClick={pick} disabled={loading}>
         {loading ? "Yükleniyor…" : "Öne çıkan görseli yükle"}
       </button>
-
       {preview && (
         <div className="mt-3 overflow-hidden rounded-xl ring-1 ring-stone-200">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="Önizleme" className="h-40 w-full object-cover" />
         </div>
       )}
-
       {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
     </div>
   );
