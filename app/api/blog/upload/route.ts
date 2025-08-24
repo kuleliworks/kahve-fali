@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { redis } from "@/lib/redis";
 
 const MAX_MB = 15;
 
@@ -35,14 +34,11 @@ export async function POST(req: Request) {
     const ext = extFrom(file) || "";
     const key = `blog/${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
 
-    // File nesnesini doğrudan ver
+    // File nesnesini doğrudan ver, public URL dönsün
     const { url } = await put(key, file, {
       access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token: process.env.BLOB_READ_WRITE_TOKEN, // Vercel → Env Vars
     });
-
-    // key -> url eşlemesini Redis'e yaz (1 yıl)
-    await redis.set(`media:url:${key}`, url, { ex: 60 * 60 * 24 * 365 });
 
     return NextResponse.json({ ok:true, url, key }, { status: 200 });
   } catch (e: any) {
