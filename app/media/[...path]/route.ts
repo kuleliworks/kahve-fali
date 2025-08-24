@@ -1,26 +1,26 @@
-import { NextResponse } from "next/server";
+import { redis } from "@/lib/redis";
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
-
-const ORIGIN = process.env.BLOB_PUBLIC_BASE;
-
+// Bu route: /media/{key} → Redis’ten public URL’i bulur → 302 redirect yapar
+// Next 15 uyumluluğu için params Promise olarak alınır.
 export async function GET(
   _req: Request,
   ctx: { params: Promise<{ path?: string[] }> }
 ) {
-  if (!ORIGIN) return new NextResponse("BLOB_PUBLIC_BASE not set", { status: 500 });
-
   const { path } = await ctx.params;
-  const key = (path || []).join("/"); // ["blog","file.jpg"] -> "blog/file.jpg"
-  if (!key) return new NextResponse("Not Found", { status: 404 });
+  const key = Array.isArray(path) ? path.join("/") : "";
 
-  const upstream = await fetch(`${ORIGIN}/${encodeURI(key)}`);
-  if (!upstream.ok) return new NextResponse("Not Found", { status: 404 });
+  if (!key) {
+    return new Response("Not Found", { status: 404 });
+  }
 
-  const headers = new Headers(upstream.headers);
-  headers.set("cache-control", "public, max-age=31536000, s-maxage=31536000, immutable");
-  headers.delete("x-vercel-id");
+  // Redis’teki map: media:url:{key} => public URL (imzalı)
+  const url = await redis.get<string>(`media:url:${key}`);
 
-  return new NextResponse(upstream.body, { status: upstream.status, headers });
+  if (!url) {
+    // Eşleşme yoksa 404
+    return new Response("Not Found", { status: 404 });
+  }
+
+  // Kalıcı yönlendirme da yapabilirsin ama cache’i sen yönetmek istersin diye 302 bıraktım
+  return Response.redirect(url, 302);
 }
