@@ -12,7 +12,7 @@ export async function GET(
   if (!ORIGIN) return new NextResponse("BLOB_PUBLIC_BASE not set", { status: 500 });
 
   const { path } = await ctx.params;
-  const key = (path || []).join("/"); // ["blog","file.png"] -> "blog/file.png"
+  const key = (path || []).join("/"); // ["blog","file.jpg"] -> "blog/file.jpg"
   if (!key) return new NextResponse("Not Found", { status: 404 });
 
   const upstream = await fetch(`${ORIGIN}/${encodeURI(key)}`);
