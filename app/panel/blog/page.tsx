@@ -11,21 +11,18 @@ type Row = {
   description?: string;
   image?: string;
   status?: "draft" | "pub";
-  createdAt?: string; // ms string olabilir
+  createdAt?: string; // ms (string)
 };
 
 async function getAllRows(): Promise<Row[]> {
-  // Public listelemede kullandığımızla aynı index: blog:index
-  // Yeni -> eski
-  const slugs =
-    (await redis.zrange<string>("blog:index", 0, -1, { rev: true })) || [];
+  // NOT: Burada generic KULLANMIYORUZ; sonucu string[] olarak cast ediyoruz
+  const slugsRaw = await redis.zrange("blog:index", 0, -1, { rev: true } as any);
+  const slugs = Array.isArray(slugsRaw) ? (slugsRaw as string[]) : [];
 
   const rows: Row[] = [];
   for (const slug of slugs) {
-    const it = await redis.hgetall<Record<string, string>>(
-      `blog:post:${slug}`
-    );
-    if (!it) continue;
+    const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
+    if (!it || Object.keys(it).length === 0) continue;
     rows.push({
       slug,
       title: it.title,
@@ -104,9 +101,7 @@ export default async function Page() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{it.title || it.slug}</div>
-                    <div className="text-xs text-stone-500 break-all">
-                      /blog/{it.slug}
-                    </div>
+                    <div className="break-all text-xs text-stone-500">/blog/{it.slug}</div>
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -119,26 +114,16 @@ export default async function Page() {
                       {it.status === "pub" ? "Yayınlandı" : "Taslak"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-stone-700">
-                    {fmtDate(it.createdAt)}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-stone-700">{fmtDate(it.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-2">
-                      <Link
-                        href={`/blog/${it.slug}`}
-                        className="btn btn-ghost"
-                        title="Görüntüle"
-                      >
+                      <Link href={`/blog/${it.slug}`} className="btn btn-ghost" title="Görüntüle">
                         Görüntüle
                       </Link>
-                      <Link
-                        href={`/panel/blog/duzenle/${it.slug}`}
-                        className="btn btn-ghost"
-                        title="Düzenle"
-                      >
+                      <Link href={`/panel/blog/duzenle/${it.slug}`} className="btn btn-ghost" title="Düzenle">
                         Düzenle
                       </Link>
-                      {/* Silme için isterseniz ileride server action veya bir API çağrısı ekleriz */}
+                      {/* İleride “Sil” eklenecekse burada buton + server action / API çağrısı koyabiliriz */}
                     </div>
                   </td>
                 </tr>
