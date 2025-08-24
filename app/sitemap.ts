@@ -1,37 +1,52 @@
+// app/sitemap.ts
 import type { MetadataRoute } from "next";
 import { redis } from "@/lib/redis";
 import { SITE } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Sık çalışmasın ama “takılı” da kalmasın
+export const revalidate = 300; // 5 dk
+
+function abs(path: string) {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${SITE.url}${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = SITE.url;
+  const now = new Date();
 
-  const staticUrls: MetadataRoute.Sitemap = [
-    { url: `${base}/`, lastModified: new Date() },
-    { url: `${base}/hakkimizda`, lastModified: new Date() },
-    { url: `${base}/iletisim`, lastModified: new Date() },
-    { url: `${base}/gizlilik`, lastModified: new Date() },
-    { url: `${base}/kvkk`, lastModified: new Date() },
-    { url: `${base}/kullanim-kosullari`, lastModified: new Date() },
-    { url: `${base}/blog`, lastModified: new Date() },
+  // Statik sayfalar
+  const items: MetadataRoute.Sitemap = [
+    { url: abs("/"),                 lastModified: now, changeFrequency: "daily",   priority: 1.0 },
+    { url: abs("/hakkimizda"),       lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: abs("/iletisim"),         lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
+    { url: abs("/gizlilik"),         lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
+    { url: abs("/kvkk"),             lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
+    { url: abs("/kullanim-kosullari"), lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: abs("/blog"),             lastModified: now, changeFrequency: "daily",   priority: 0.8 },
+    // NOT: /fal/* bilerek eklemiyoruz (robots.txt ile de kapalı)
   ];
 
+  // Blog yazıları (KV’den, kısa timeout’la)
   try {
-    const slugs = (await redis.zrange("blog:index", 0, -1, { rev: true })) as string[];
-    const items: MetadataRoute.Sitemap = [];
+    const slugs = await Promise.race([
+      redis.zrange("blog:index", 0, 200, { rev: true }) as Promise<string[]>,
+      new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error("kv-timeout")), 1200)),
+    ]);
+
     for (const slug of slugs || []) {
       const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
-      if (it && it.status === "pub") {
-        items.push({
-          url: `${base}/blog/${slug}`,
-          lastModified: it.updatedAt ? new Date(Number(it.updatedAt)) : new Date(),
-        });
-      }
+      if (!it || it.status !== "pub") continue;
+
+      items.push({
+        url: abs(`/blog/${slug}`),
+        lastModified: it.updatedAt ? new Date(Number(it.updatedAt)) : now,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
     }
-    return [...staticUrls, ...items];
   } catch {
-    return staticUrls;
+    // KV çalışmıyorsa sessizce statik kayıtlarla yetin
   }
+
+  return items;
 }
