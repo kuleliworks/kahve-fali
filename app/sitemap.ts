@@ -3,6 +3,9 @@ import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/seo";
 import { redis } from "@/lib/redis";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Sitemap'i 5 dakikada bir yenile (ISR)
 export const revalidate = 300;
 // Tamamen SSG + ISR çalışsın
