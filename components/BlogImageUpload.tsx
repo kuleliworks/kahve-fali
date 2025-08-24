@@ -26,10 +26,9 @@ export default function BlogImageUpload({ value, onDone }: Props) {
       if (!res.ok || !json?.ok) throw new Error(json?.error || "Yükleme başarısız");
 
       // En garanti yol: server'dan dönen 'key' varsa kendi domaininden servis et
-      const final: string =
-        (json.key ? `/media/${json.key}` : "") ||
-        json.publicUrl ||
-        json.url;
+const final: string =
+  json.publicUrl || json.url || (json.key ? `/media/${json.key}` : "");
+
 
       onDone(final);
       setPreview(final);
