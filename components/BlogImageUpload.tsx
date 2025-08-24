@@ -1,99 +1,52 @@
 "use client";
-
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 type Props = {
-  onDone: (url: string) => void;
-  className?: string;
+  value?: string;                 // mevcut görsel (opsiyonel)
+  onDone: (url: string) => void;  // upload sonrası dönen public URL
 };
 
-export default function BlogImageUpload({ onDone, className }: Props) {
-  const inp = useRef<HTMLInputElement | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+export default function BlogImageUpload({ value, onDone }: Props) {
+  const [preview, setPreview] = useState<string | undefined>(value);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function upload(file: File) {
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
     setErr(null);
     setBusy(true);
     try {
-      // Basit boyut kontrolü (örn. 15MB)
-      const max = 15 * 1024 * 1024;
-      if (file.size > max) {
-        throw new Error("Dosya çok büyük (maks. 15MB).");
-      }
-
-      // Önizleme
-      setPreview(URL.createObjectURL(file));
-
-      // Sunucuya multipart gönder
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("filename", file.name);
+      fd.append("folder", "blog"); // klasör
 
-      // 45sn timeout
-      const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), 45000);
-
-      const res = await fetch("/api/blog/upload", {
-        method: "POST",
-        body: fd,
-        signal: ctrl.signal,
-      }).catch((e) => {
-        throw new Error(e?.name === "AbortError" ? "İstek zaman aşımına uğradı." : "Yükleme başarısız.");
-      });
-
-      clearTimeout(to);
-
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `HTTP ${res.status}`);
+      const res = await fetch("/api/blog/upload", { method: "POST", body: fd });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.url) {
+        throw new Error(json?.error || "Yükleme başarısız");
       }
-      const json = await res.json();
-      if (!json?.url) throw new Error("Sunucu geçersiz yanıt verdi.");
+      setPreview(json.url);
       onDone(json.url);
     } catch (e: any) {
-      setErr(e?.message || "Yükleme sırasında hata oluştu.");
+      setErr(e?.message || "Yükleme hatası");
     } finally {
       setBusy(false);
     }
   }
 
-  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f) upload(f);
-  }
-
   return (
-    <div className={className}>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => inp.current?.click()}
-          className="btn btn-ghost"
-          disabled={busy}
-        >
-          {busy ? "Yükleniyor…" : "Görsel seç"}
-        </button>
-        <input
-          ref={inp}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={onPick}
-        />
-        {err && <span className="text-sm text-red-600">{err}</span>}
-      </div>
-
+    <div className="space-y-2">
+      <input type="file" accept="image/*" onChange={onFile} />
+      {busy && <div className="text-sm text-stone-600">Yükleniyor…</div>}
+      {err && <div className="text-sm text-red-600">{err}</div>}
       {preview && (
-        <div className="mt-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={preview}
-            alt="Önizleme"
-            className="h-28 w-40 rounded-xl object-cover ring-1 ring-stone-200"
-          />
-        </div>
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={preview}
+          alt="Öne çıkarılan görsel"
+          className="mt-1 h-32 w-56 rounded-lg object-cover ring-1 ring-stone-200"
+        />
       )}
     </div>
   );
