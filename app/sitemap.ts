@@ -1,27 +1,18 @@
-// app/sitemap.ts — Blog yazılarını otomatik ekler, hata durumunda statik fallback döner
 import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/seo";
-import { redis } from "@/lib/redis";
 
+// Route davranışı
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function baseUrl() {
-  return (SITE.url || "https://www.kahvefalin.com").replace(/\/$/, "");
-}
+// Upstash REST env'leri (Vercel > Settings > Environment Variables)
+const UP_URL   = process.env.UPSTASH_REDIS_REST_URL || "";
+const UP_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
 
-function safeDate(input: unknown): Date {
-  if (!input) return new Date();
-  if (typeof input === "number") {
-    const d = new Date(input);
-    if (!isNaN(d.getTime())) return d;
-  }
-  if (typeof input === "string") {
-    const asNum = Number(input);
-    const d = isNaN(asNum) ? new Date(input) : new Date(asNum);
-    if (!isNaN(d.getTime())) return d;
-  }
-  return new Date();
+function baseUrl() {
+  const u = (SITE?.url || "https://www.kahvefalin.com").replace(/\/$/, "");
+  return u;
 }
 
 function staticEntries(): MetadataRoute.Sitemap {
@@ -38,42 +29,80 @@ function staticEntries(): MetadataRoute.Sitemap {
   ];
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const b = baseUrl();
+function safeDate(input: unknown): Date {
+  if (!input) return new Date();
+  if (typeof input === "number") {
+    const d = new Date(input);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (typeof input === "string") {
+    const n = Number(input);
+    const d = isNaN(n) ? new Date(input) : new Date(n);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date();
+}
 
-  // 1) Önce statikleri hazır tut
-  const base = staticEntries();
+async function upstashFetch<T>(path: string, body?: any, timeoutMs = 1500): Promise<T | null> {
+  if (!UP_URL || !UP_TOKEN) return null;
+
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort("timeout"), timeoutMs);
 
   try {
-    // 2) Redis’ten slug listesi (en eski→en yeni), sonra ters çevir
-    const raw = (await redis.zrange("blog:index", 0, -1)) as unknown;
-    let slugs: string[] = Array.isArray(raw) ? (raw as string[]) : [];
-    slugs = slugs.slice().reverse();
-
-    // Çok büyük listelerde sitemap şişmesin
-    if (slugs.length > 2000) slugs = slugs.slice(0, 2000);
-
-    const items: MetadataRoute.Sitemap = [];
-    for (const slug of slugs) {
-      try {
-        const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
-        if (!it) continue;
-
-        const lm = safeDate(it.updatedAt ?? it.createdAt ?? undefined);
-        items.push({
-          url: `${b}/blog/${encodeURIComponent(slug)}`,
-          lastModified: lm,
-          changeFrequency: "weekly",
-          priority: 0.7,
-        });
-      } catch {
-        // tek tek hata verirse yut, diğerlerine devam et
-      }
-    }
-
-    return [...base, ...items];
+    const res = await fetch(`${UP_URL.replace(/\/$/, "")}${path}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${UP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : "{}",
+      signal: ac.signal,
+      // Vercel edge/node cache'ine takılmasın:
+      cache: "no-store",
+    });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const json = (await res.json()) as any;
+    return (json?.result ?? null) as T | null;
   } catch {
-    // Redis tamamen patlarsa en azından statikler dönsün
-    return base;
+    clearTimeout(t);
+    return null;
   }
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const b = baseUrl();
+  const base = staticEntries();
+
+  // Env yoksa direkt statik
+  if (!UP_URL || !UP_TOKEN) return base;
+
+  // 1) Slug listesini al (en eski→en yeni geliyor; tersine çevir)
+  const slugs = (await upstashFetch<string[]>("/zrange/blog:index/0/-1")) || [];
+  const newestFirst = slugs.slice().reverse();
+
+  // Çok büyümeyi engelle
+  const limited = newestFirst.slice(0, 2000);
+
+  // 2) Her slug için hgetall
+  const entries: MetadataRoute.Sitemap = [];
+  await Promise.all(
+    limited.map(async (slug) => {
+      const key = `blog:post:${slug}`;
+      // Upstash REST: /hgetall/{key}
+      const it = await upstashFetch<Record<string, string>>(`/hgetall/${encodeURIComponent(key)}`);
+      if (!it) return;
+
+      const lm = safeDate(it.updatedAt ?? it.createdAt ?? undefined);
+      entries.push({
+        url: `${b}/blog/${encodeURIComponent(slug)}`,
+        lastModified: lm,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    })
+  );
+
+  return [...base, ...entries];
 }
