@@ -312,3 +312,4 @@ export default function NewPostClient() {
     </div>
   );
 }
+
