@@ -1,23 +1,9 @@
-// middleware.ts
+// middleware.ts (varsa)
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // Bu yolları tamamen serbest bırak (özellikle sitemap.xml ve robots.txt)
-  if (
-    pathname === "/sitemap.xml" ||
-    pathname === "/robots.txt" ||
-    pathname.startsWith("/_next/") ||
-    pathname.startsWith("/static/") ||
-    pathname.startsWith("/media/") ||
-    pathname.startsWith("/api/")
-  ) {
-    return NextResponse.next();
-  }
-
-  // Sadece /panel altında Basic Auth iste
-  if (pathname.startsWith("/panel")) {
+  // Sadece /panel korunsun; sitemap/robots asla engellenmesin.
+  if (req.nextUrl.pathname.startsWith("/panel")) {
     const user = process.env.ADMIN_USER || "admin";
     const pass = process.env.ADMIN_PASS || "changeme";
 
@@ -28,11 +14,8 @@ export function middleware(req: NextRequest) {
         headers: { "WWW-Authenticate": 'Basic realm="panel"' },
       });
     }
-
     const base64 = auth.split(" ")[1] || "";
-    // Middleware edge ortamında çalıştığı için atob kullanılabilir
-    const [u, p] = atob(base64).split(":");
-
+    const [u, p] = Buffer.from(base64, "base64").toString("utf8").split(":");
     if (u !== user || p !== pass) {
       return new NextResponse("Unauthorized", {
         status: 401,
@@ -40,12 +23,7 @@ export function middleware(req: NextRequest) {
       });
     }
   }
-
   return NextResponse.next();
 }
 
-// NOT: Aşağıdaki config'i tamamen kaldırabilirsin.
-// Eğer mutlaka matcher kullanmak istiyorsan, her şeyi kapsayan güvenli bir örnek:
-// export const config = {
-//   matcher: ["/((?!_next|static|media|api).*)"],
-// };
+export const config = { matcher: ["/panel/:path*"] };
