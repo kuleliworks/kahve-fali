@@ -1,24 +1,17 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 type Body = { name?: string; email?: string; message?: string };
 
-function hasSmtp() {
-  return (
-    !!process.env.SMTP_HOST &&
-    !!process.env.SMTP_PORT &&
-    !!process.env.SMTP_USER &&
-    !!process.env.SMTP_PASS
-  );
+function hasResend() {
+  return !!process.env.RESEND_API_KEY && !!process.env.RESEND_FROM;
 }
 
-// Basit durum kontrolü (gizli bilgileri dökmeden)
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    smtpConfigured: hasSmtp(),
-    host: process.env.SMTP_HOST ? "set" : "missing",
-    user: process.env.SMTP_USER ? "set" : "missing",
+    provider: hasResend() ? "resend" : "missing",
+    from: process.env.RESEND_FROM ? "set" : "missing",
   });
 }
 
@@ -32,60 +25,61 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    if (!hasSmtp()) {
+    if (!hasResend()) {
       return NextResponse.json(
-        { ok: false, error: "E-posta servisi yapılandırılmamış (SMTP_* env)." },
+        { ok: false, error: "E-posta servisi yapılandırılmamış (RESEND_* env)." },
         { status: 500 }
       );
     }
 
-    const secure = (process.env.SMTP_SECURE ?? "true").toLowerCase() === "true";
+    const resend = new Resend(process.env.RESEND_API_KEY!);
+    const from = process.env.RESEND_FROM!;
+    const to = process.env.CONTACT_TO || process.env.RESEND_TO || "info@kahvefalin.com";
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure, // 465 -> true
-      auth: { user: process.env.SMTP_USER!, pass: process.env.SMTP_PASS! },
-      // Bağlantı beklemelerini kıs: uzun bekleyip formun takılmasını önler
-      connectionTimeout: 8000, // ms
-      socketTimeout: 12000,
-      greetingTimeout: 8000,
-    });
+    const subject = `İletişim Formu: ${name}`;
 
-    const fromName = process.env.SMTP_FROM_NAME || "Sanal Kahve Falı";
-    const from = `${fromName} <${process.env.SMTP_USER}>`;
-    const to = process.env.CONTACT_TO || process.env.SMTP_USER!;
+    const text = `Ad: ${name}
+E-posta: ${email || "-"}
+    
+Mesaj:
+${message}`;
 
-    await transporter.sendMail({
+    const html = `
+<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif">
+  <h2>İletişim Formu</h2>
+  <p><b>Ad:</b> ${esc(name)}</p>
+  <p><b>E-posta:</b> ${email ? esc(email) : "-"}</p>
+  <hr/>
+  <pre style="white-space:pre-wrap;font:inherit">${esc(message)}</pre>
+</div>`.trim();
+
+    // Basit timeout: 15 sn içinde dönsün (serverless'ta asılı kalmasın)
+    const ac = new AbortController();
+    const killer = setTimeout(() => ac.abort(), 15000);
+
+    const { error } = await resend.emails.send({
       from,
       to,
-      subject: `İletişim Formu: ${name}`,
-      replyTo: email || undefined,
-      text: `Ad: ${name}\nE-posta: ${email || "-"}\n\nMesaj:\n${message}`,
-      html: `
-        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif">
-          <h2>İletişim Formu</h2>
-          <p><b>Ad:</b> ${escapeHtml(name)}</p>
-          <p><b>E-posta:</b> ${email ? escapeHtml(email) : "-"}</p>
-          <hr/>
-          <pre style="white-space:pre-wrap;font:inherit">${escapeHtml(message)}</pre>
-        </div>
-      `,
+      subject,
+      text,
+      html,
+      // not: reply-to istersen domain doğrulandıktan sonra ekleyebiliriz
     });
 
+    clearTimeout(killer);
+
+    if (error) throw new Error(String(error));
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    // Hata olduğunda asla asılı kalma: JSON ile dön
-    return NextResponse.json(
-      { ok: false, error: err?.message || "Mail gönderilemedi." },
-      { status: 500 }
-    );
+    const msg =
+      err?.name === "AbortError"
+        ? "Zaman aşımı. Lütfen tekrar deneyin."
+        : err?.message || "Mail gönderilemedi.";
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
 
-// ES2019 uyumlu escape (replaceAll yok)
-function escapeHtml(s: string) {
+function esc(s: string) {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
