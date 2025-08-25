@@ -1,6 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  if (
+    pathname === "/sitemap.xml" ||     // <-- önemli
+    pathname === "/robots.txt" ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/static/") ||
+    pathname.startsWith("/media/")
+  ) {
+    return NextResponse.next();
+  }
+
+  return NextResponse.next();
+}
+
+
+export function middleware(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/panel")) {
     const user = process.env.ADMIN_USER || "admin";
     const pass = process.env.ADMIN_PASS || "changeme";
