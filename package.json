@@ -10,17 +10,15 @@
     "next": "^15.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "nodemailer": "6.9.13",
-    "sanitize-html": "^2.13.0",
     "@upstash/redis": "1.31.6",
     "@vercel/blob": "^0.24.0",
     "resend": "^3.3.0",
+    "sanitize-html": "^2.13.0"
   },
   "devDependencies": {
     "typescript": "^5.6.2",
     "@types/node": "^20.11.30",
     "@types/react": "^18.2.66",
-    "@types/nodemailer": "6.4.14",
     "tailwindcss": "3.4.13",
     "postcss": "8.4.47",
     "autoprefixer": "10.4.20",
