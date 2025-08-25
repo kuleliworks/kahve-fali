@@ -15,7 +15,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Ad ve mesaj zorunludur." }, { status: 400 });
     }
 
-    // --- SMTP VARSA ONU KULLAN ---
     const hasSmtp =
       !!process.env.SMTP_HOST &&
       !!process.env.SMTP_PORT &&
@@ -55,7 +54,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // --- SMTP YOKSA HATA (istersen Resend fallback ekleriz) ---
     return NextResponse.json(
       { ok: false, error: "E-posta servisi yapılandırılmamış (SMTP_* env gerekli)." },
       { status: 500 }
@@ -68,12 +66,12 @@ export async function POST(req: Request) {
   }
 }
 
-// Basit HTML kaçış
+// replaceAll yerine regex'li sürüm (es2019 uyumlu)
 function escapeHtml(s: string) {
   return s
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
