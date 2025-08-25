@@ -1,9 +1,9 @@
+// app/sitemap.ts
 import type { MetadataRoute } from "next";
 
-/** Bu dosyayı runtime'da çalıştır, build'te dondurma */
 export const dynamic = "force-dynamic";
-export const revalidate = 300; // 5 dk cache
-export const runtime = "nodejs"; // edge ile olası fetch/Headers farklarını önler
+export const revalidate = 300; // 5 dk
+export const runtime = "nodejs";
 
 function baseUrl() {
   return "https://www.kahvefalin.com";
@@ -37,30 +37,48 @@ function safeDate(input?: unknown): Date {
   return new Date();
 }
 
+async function withTimeout<T>(p: Promise<T>, ms = 1500): Promise<T> {
+  return await Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), ms)),
+  ]);
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = staticEntries();
 
-  // Env yoksa hiç uğraşma, statik dön
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return base;
 
   try {
-    // Redis’i güvenli şekilde local burada oluştur
     const { Redis } = await import("@upstash/redis");
     const redis = new Redis({ url, token });
 
-    // En yeni 50 yazı (rev:true => yeni->eski)
-    const raw: unknown = await redis.zrange("blog:index", 0, 49, { rev: true } as any);
-    const slugs: string[] = Array.isArray(raw) ? raw.map((s: any) => String(s)) : [];
+    // En yeni 50 yazı
+    const raw = await withTimeout(
+      // tip sistemini rahatlatmak için 'as any'
+      redis.zrange("blog:index", 0, 49, { rev: true } as any),
+      1500
+    ).catch(() => null);
+
+    const slugs: string[] = Array.isArray(raw)
+      ? (raw as unknown[]).map((s) => String(s))
+      : [];
+
     if (slugs.length === 0) return base;
 
     const b = baseUrl();
     const rows: MetadataRoute.Sitemap = [];
 
     for (const slug of slugs) {
-      const it = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
+      // her ihtimale karşı time-out ile sar
+      const it = await withTimeout(
+        redis.hgetall<Record<string, string>>(`blog:post:${slug}`),
+        1500
+      ).catch(() => null);
       if (!it) continue;
+
       rows.push({
         url: `${b}/blog/${encodeURIComponent(slug)}`,
         lastModified: safeDate(it.updatedAt || it.createdAt),
@@ -71,7 +89,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     return [...base, ...rows];
   } catch {
-    // Ne olursa olsun asla boş dönme
     return base;
   }
 }
