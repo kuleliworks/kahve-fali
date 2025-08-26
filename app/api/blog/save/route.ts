@@ -1,95 +1,66 @@
 // app/api/blog/save/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
-import { revalidatePath } from "next/cache";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
-function JOK(data: any = {}) {
-  return NextResponse.json({ ok: true, ...data });
-}
-function JERR(message: string, status = 400) {
-  return NextResponse.json({ ok: false, error: message }, { status });
-}
+type Body = {
+  title: string;
+  slug?: string;
+  description?: string;
+  image?: string;
+  content?: string;
+  status?: "pub" | "draft";
+};
 
-function slugifyTr(input: string) {
-  const map: Record<string, string> = {
-    ç: "c", ğ: "g", ı: "i", i: "i", İ: "i", ö: "o", ş: "s", ü: "u",
-    Ç: "c", Ğ: "g", I: "i", Ö: "o", Ş: "s", Ü: "u",
-  };
-  const norm = input.split("").map((ch) => map[ch] ?? ch).join("");
-  return norm
+function slugify(s: string) {
+  return s
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s")
+    .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const raw = await req.text();
-    if (!raw) return JERR("Boş istek gövdesi", 400);
-
-    let body: any;
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      return JERR("Geçersiz JSON", 400);
+    const b = (await req.json()) as Body;
+    if (!b?.title) {
+      return NextResponse.json({ ok: false, error: "Başlık zorunlu" }, { status: 400 });
     }
 
-    const title = String(body.title || "").trim();
-    let slug = String(body.slug || "").trim();
-    const description = String(body.description || "").trim();
-    const content = String(body.content || "").trim();
-    const status: "draft" | "pub" = body.status === "draft" ? "draft" : "pub";
-    const image = body.image ? String(body.image) : "";
+    const now = Date.now();
+    const base = b.slug ? slugify(b.slug) : slugify(b.title);
+    let finalSlug = base || `yazi-${now}`;
 
-    if (!title || !description || !content) {
-      return JERR("Zorunlu alanlar: başlık, açıklama, içerik", 400);
+    // Slug çakışmasını çöz
+    for (let i = 2; i < 1000; i++) {
+      const exists = await redis.exists(`blog:post:${finalSlug}`);
+      if (!exists) break;
+      finalSlug = `${base}-${i}`;
     }
-    if (!slug) slug = slugifyTr(title);
-    if (!slug) return JERR("Slug üretilemedi", 400);
 
-    const key = `blog:post:${slug}`;
+    const key = `blog:post:${finalSlug}`;
 
-    // Mükerer slug kontrolü
-    const exists = await redis.exists(key);
-    if (exists) return JERR("Bu slug zaten var", 409);
+    await redis.hset(key, {
+      title: b.title,
+      description: b.description ?? "",
+      image: b.image ?? "",
+      content: b.content ?? "",
+      status: b.status ?? "pub",
+      createdAt: String(now),
+      updatedAt: String(now),
+      slug: finalSlug,
+    });
 
-    const nowIso = new Date().toISOString();
-    const record = {
-      title,
-      slug,
-      description,
-      content,
-      status,            // "pub" ise listeye alınır
-      image,             // Vercel Blob URL’si
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    };
+    // Indexe (timestamp ile) ekle
+    await redis.zadd("blog:index", { score: now, member: finalSlug });
 
-    // Yazıyı kaydet
-    await Promise.all([
-      redis.hset(key, record),
-      status === "pub"
-        ? redis.zadd("blog:index", { score: Date.now(), member: slug })
-        : Promise.resolve(),
-    ]);
-
-    // Listeleri/sitemap’i tazele (best-effort)
-    try {
-      revalidatePath("/blog");
-      revalidatePath("/sitemap.xml");
-    } catch {}
-
-    return JOK({ slug });
+    return NextResponse.json({ ok: true, slug: finalSlug });
   } catch (e: any) {
-    return JERR(e?.message || "Sunucu hatası", 500);
+    return NextResponse.json(
+      { ok: false, error: e?.message || "save failed" },
+      { status: 500 }
+    );
   }
-}
-
-// İsteğe bağlı sağlık kontrolü (GET 405 yerine anlaşılır yanıt)
-export async function GET() {
-  return JERR("POST kullanın", 405);
 }
