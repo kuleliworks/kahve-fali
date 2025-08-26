@@ -13,21 +13,22 @@ type StepData = {
   photos?: File[];
 };
 
-// Güvenli base64url
-function toBase64Url(obj: any) {
-  const str = JSON.stringify(obj);
-  const b64 = typeof window !== "undefined"
-    ? btoa(unescape(encodeURIComponent(str)))
-    : Buffer.from(str, "utf8").toString("base64");
+// Base64URL (paylaşılabilir id)
+function toBase64Url(obj: unknown) {
+  const json = JSON.stringify(obj);
+  // btoa, UTF-8 güvenli hale getir
+  const bin = typeof window === "undefined" ? json : unescape(encodeURIComponent(json));
+  const b64 = typeof window === "undefined" ? Buffer.from(json).toString("base64") : btoa(bin);
   return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 export default function StepForm() {
+  const router = useRouter();
+
   const [step, setStep] = useState(0);
   const [data, setData] = useState<StepData>({});
   const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   const canNext = useMemo(() => {
     if (step === 0) return !!data.name && (data.photos?.length || 0) > 0;
@@ -38,6 +39,7 @@ export default function StepForm() {
 
   const onFiles = useCallback((files: FileList | null) => {
     if (!files) return;
+    // Yalın: sadece önizleme & adet sayısı (upload yok)
     const list = Array.from(files).slice(0, 3);
     setData((d) => ({ ...d, photos: list }));
   }, []);
@@ -47,24 +49,23 @@ export default function StepForm() {
     setShowProgress(true);
   };
 
-const onProgressDone = useCallback(async () => {
-  try {
-    // 1) İstemcide ID oluştur
-    const payload = {
-      n: String(data.name || "").slice(0, 60),
-      g: String(data.gender || ""),
-      a: Number(data.age || 0) || 0,
-      i: Number(data.photos?.length || 0) || 0,
-      t: Date.now(),
-    };
-    const id = toBase64Url(payload);
-
-    // 2) Panel log’unu kısa süreli bekleyelim (max ~600ms), sonra push
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 600);
-
+  // İlerleme bittiğinde: id üret, hafif log at, sonuç sayfasına git
+  const onProgressDone = useCallback(async () => {
     try {
-      await fetch("/api/fal-log", {
+      const payload = {
+        n: (data.name || "").trim(),
+        g: data.gender || "",
+        a: data.age || 0,
+        i: data.photos?.length || 0,
+        t: Date.now(),
+      };
+      const readingId = toBase64Url(payload);
+
+      // Log’u kısa timeout + keepalive ile gönder (başarısız olsa da yolumuza devam)
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2000); // 2 sn sınır
+
+      fetch("/api/fal-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -72,26 +73,20 @@ const onProgressDone = useCallback(async () => {
           gender: payload.g,
           age: payload.a,
           photosCount: payload.i,
-          readingId: id,
+          readingId,
+          notes: "",
         }),
         keepalive: true,
         signal: controller.signal,
-      }).catch(() => {});
-    } catch {
-      // log düşmese bile devam
-    } finally {
-      clearTimeout(t);
+      }).catch(() => { /* sessizce geç */ }).finally(() => clearTimeout(timer));
+
+      // Hemen sonuç sayfasına gönder
+      router.push(`/fal/${encodeURIComponent(readingId)}`);
+    } catch (e: any) {
+      setError(e?.message || "Fal sayfasına yönlendirilirken bir hata oluştu.");
+      setShowProgress(false);
     }
-
-    // 3) Hemen sonuç sayfasına git
-    router.push(`/fal/${encodeURIComponent(id)}`);
-  } catch (e: any) {
-    setError(e?.message || "Beklenmeyen bir hata oluştu.");
-  } finally {
-    setShowProgress(false);
-  }
-}, [data, router]);
-
+  }, [data, router]);
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-md md:p-8">
@@ -191,7 +186,9 @@ const onProgressDone = useCallback(async () => {
               max={99}
               placeholder="Örn: 27"
               value={data.age ?? ""}
-              onChange={(e) => setData((d) => ({ ...d, age: Number(e.target.value || 0) }))}
+              onChange={(e) =>
+                setData((d) => ({ ...d, age: e.target.value ? Number(e.target.value) : undefined }))
+              }
             />
           </div>
         )}
@@ -231,7 +228,7 @@ const onProgressDone = useCallback(async () => {
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </>
 
-      {/* 20–30 sn simülasyon; bittiğinde onProgressDone çalışır */}
+      {/* İlerleme simülasyonu (20–30 sn) */}
       {showProgress && <ProgressOverlay onDone={onProgressDone} minMs={20000} maxMs={30000} />}
     </div>
   );
