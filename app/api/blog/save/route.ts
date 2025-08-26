@@ -1,81 +1,81 @@
 // app/api/blog/save/route.ts
 import { NextResponse } from "next/server";
-import { redis } from "@/lib/redis"; // Upstash client
+import { redis } from "@/lib/redis";
 
-type Body = {
+type SaveBody = {
   title?: string;
   slug?: string;
-  description?: string;     // kısa özet (opsiyonel)
-  image?: string;           // öne çıkan görsel (opsiyonel)
-  content?: string;         // HTML/Markdown
-  status?: "draft" | "pub";
-
-  // --- SEO alanları (opsiyonel) ---
-  seoTitle?: string;        // <title> override
-  seoDescription?: string;  // <meta description>
-  ogImage?: string;         // OG/Twitter için özel görsel
+  description?: string;
+  image?: string;
+  content?: string;
+  status?: "pub" | "draft";
+  seoTitle?: string;
+  seoDescription?: string;
+  ogImage?: string;
 };
 
-function normalizeSlug(s: string) {
-  // TR karakterleri sadeleştir + kebab-case
-  const map: Record<string,string> = {
-    ç:"c", ğ:"g", ı:"i", i:"i", ö:"o", ş:"s", ü:"u",
-    Ç:"c", Ğ:"g", İ:"i", I:"i", Ö:"o", Ş:"s", Ü:"u",
-  };
-  return s
-    .trim()
+function slugify(input: string) {
+  return (input || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
     .replace(/[^\w\s-]/g, "")
-    .split("")
-    .map(ch => map[ch] ?? ch)
-    .join("")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .toLowerCase();
+    .trim()
+    .replace(/\s+/g, "-");
 }
 
+// Sadece POST
 export async function POST(req: Request) {
   try {
-    const data = (await req.json()) as Body;
-
-    const title = (data.title || "").trim();
-    const rawSlug = (data.slug || title || "").trim();
-    const slug = normalizeSlug(rawSlug || "yazi");
-
-    if (!title) {
-      return NextResponse.json({ ok: false, error: "Başlık zorunlu." }, { status: 400 });
+    const body = (await req.json().catch(() => null)) as SaveBody | null;
+    if (!body) {
+      return NextResponse.json({ ok: false, error: "Geçersiz gövde" }, { status: 400 });
     }
 
+    const title = (body.title || "").trim();
+    let slug = (body.slug || "").trim();
+
+    if (!title) return NextResponse.json({ ok: false, error: "Başlık zorunlu" }, { status: 400 });
+    if (!slug) slug = slugify(title);
+
+    const key = `blog:post:${slug}`;
     const now = Date.now();
-    const createdAt = String(now);
 
-    // Mevcut mu? (mükerrer kontrolü)
-    const exists = await redis.exists(`blog:post:${slug}`);
-    const isNew = !exists;
+    // Eski kayıt varsa createdAt'i koru
+    const old = await redis.hgetall<Record<string, string>>(key);
+    const createdAt = old?.createdAt ? Number(old.createdAt) : now;
 
-    // Kaydet
-    const payload: Record<string, string> = {
+    const data = {
       title,
       slug,
-      content: data.content || "",
-      description: data.description || "",
-      image: data.image || "",
-      status: data.status === "pub" ? "pub" : "draft",
-      // SEO
-      seoTitle: data.seoTitle || "",
-      seoDescription: data.seoDescription || "",
-      ogImage: data.ogImage || "",
-      // zaman damgaları
-      updatedAt: createdAt,
+      description: body.description || "",
+      image: body.image || "",
+      content: body.content || "",
+      status: body.status === "draft" ? "draft" : "pub",
+      createdAt: String(createdAt),
+      updatedAt: String(now),
+      seoTitle: body.seoTitle || "",
+      seoDescription: body.seoDescription || "",
+      ogImage: body.ogImage || body.image || "",
     };
-    if (isNew) payload.createdAt = createdAt;
 
-    await redis.hset(`blog:post:${slug}`, payload);
+    // Kaydet
+    await redis.hset(key, data);
+    // Index (en yeni önce görünmesi için score = createdAt)
+    await redis.zadd("blog:index", { score: createdAt, member: slug });
 
-    // Index’e skor olarak zaman yaz (yeni → eski listeleme)
-    await redis.zadd("blog:index", { score: now, member: slug });
-
-    return NextResponse.json({ ok: true, slug, isNew }, { status: 200 });
+    return NextResponse.json({ ok: true, slug });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Kayıt hatası" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e?.message || "Sunucu hatası" }, { status: 500 });
   }
+}
+
+// GET'e izin yok -> 405 (test için /api/blog/save açarsan JSON döner)
+export async function GET() {
+  return NextResponse.json({ ok: false, error: "Method not allowed" }, { status: 405 });
 }
