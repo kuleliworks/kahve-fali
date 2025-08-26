@@ -1,230 +1,259 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import BlogImageUpload from "@/components/BlogImageUpload";
 
-/** Basit TR slugify */
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ı/g, "i")
-    .replace(/ğ/g, "g")
-    .replace(/ü/g, "u")
-    .replace(/ş/g, "s")
-    .replace(/ö/g, "o")
-    .replace(/ç/g, "c")
-    .replace(/[^a-z0-9\- ]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-}
-
-type Status = "draft" | "pub";
-
-type Draft = {
+type D = {
   title: string;
-  slug?: string;
-  description?: string;
-  image?: string; // BlogImageUpload döndürdüğü URL
+  slug: string;
+  description: string;
+  image: string;
   content: string;
-  status: Status;
+  status: "draft" | "pub";
+
+  // SEO
+  seoTitle?: string;
+  seoDescription?: string;
+  ogImage?: string;
 };
+
+function normalizeSlug(s: string) {
+  const map: Record<string,string> = {
+    ç:"c", ğ:"g", ı:"i", i:"i", ö:"o", ş:"s", ü:"u",
+    Ç:"c", Ğ:"g", İ:"i", I:"i", Ö:"o", Ş:"s", Ü:"u",
+  };
+  return s
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .split("")
+    .map(ch => map[ch] ?? ch)
+    .join("")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
 
 export default function NewPostClient() {
   const router = useRouter();
+  const qs = useSearchParams();
 
+  const [tab, setTab] = useState<"icerik" | "seo">("icerik");
   const [saving, setSaving] = useState(false);
-  const [d, setD] = useState<Draft>({
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [d, setD] = useState<D>({
     title: "",
     slug: "",
     description: "",
     image: "",
     content: "",
     status: "draft",
+    seoTitle: "",
+    seoDescription: "",
+    ogImage: "",
   });
 
+  // otomatik slug öner
+  const autoSlug = useMemo(() => normalizeSlug(d.title || ""), [d.title]);
+
   async function onSave() {
-    if (!d.title?.trim() || !d.content?.trim()) {
-      alert("Başlık ve içerik zorunludur.");
-      return;
-    }
-
-    setSaving(true);
     try {
-      // slug tercih sırası: kullanıcı girdiyse onu, yoksa başlıktan üret
-      const base = (d.slug && d.slug.trim()) || slugify(d.title || "");
-      const finalSlug = base || `yazi-${Date.now()}`;
+      setSaving(true);
+      setMsg(null);
 
-      // 12 sn client-timeout
-      const ac = new AbortController();
-      const t = setTimeout(() => ac.abort(), 12000);
+      const finalSlug = normalizeSlug(d.slug || d.title || "yazi");
 
-      const res = await fetch("/api/blog/new", {
+      const res = await fetch("/api/blog/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: ac.signal,
+        cache: "no-store",
         body: JSON.stringify({
-          title: d.title.trim(),
+          title: d.title,
           slug: finalSlug,
-          description: d.description?.trim() || "",
-          image: d.image || "",
-          content: d.content.trim(),
+          description: d.description,
+          image: d.image,
+          content: d.content,
           status: d.status,
+          // SEO
+          seoTitle: d.seoTitle,
+          seoDescription: d.seoDescription,
+          ogImage: d.ogImage,
         }),
-      }).finally(() => clearTimeout(t));
+      });
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.ok) {
-        // Sunucu duplicate slug için 409 + {error:"Bu slug zaten mevcut."} döndürüyor
-        throw new Error(json?.error || "Kayıt başarısız.");
-      }
+      const json = await res.json().catch(() => ({} as any));
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Kayıt başarısız.");
 
-      // Başarılı ise kullanıcıya seçenek sun
-      const goView = confirm("Yazı eklendi. Görüntülemek ister misin?");
-      if (goView) {
-        router.push(`/blog/${json.slug || finalSlug}`);
-      } else {
-        router.push("/panel/blog");
-      }
+      // Başarılı alert + 2 seçenek
+      setMsg("✅ İçerik kaydedildi.");
+      // 2 butonlu basit seçim:
+      // – Yazıyı gör
+      // – Yeni yazı ekle
+      setTimeout(() => {
+        if (confirm("İçerik kaydedildi. Yazıyı görüntülemek ister misin?")) {
+          router.push(`/blog/${json.slug}`);
+        } else {
+          // formu sıfırla
+          setD({
+            title: "",
+            slug: "",
+            description: "",
+            image: "",
+            content: "",
+            status: "draft",
+            seoTitle: "",
+            seoDescription: "",
+            ogImage: "",
+          });
+          setTab("icerik");
+        }
+      }, 300);
     } catch (e: any) {
-      alert(e?.name === "AbortError" ? "İstek zaman aşımına uğradı." : (e?.message || "Hata"));
+      setMsg(e?.message || "Kayıt hatası");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      {/* KART */}
-      <div className="k-card">
-        <h1 className="text-2xl font-semibold">Yeni Blog Yazısı</h1>
-        <p className="mt-1 text-sm text-stone-600">
-          Başlık, içerik ve öne çıkarılan görsel ekleyerek yeni bir yazı oluştur.
-        </p>
+    <div className="mx-auto max-w-4xl p-4">
+      <div className="mb-4 flex gap-2">
+        <button
+          className={`btn ${tab === "icerik" ? "btn-primary" : "btn-ghost"}`}
+          onClick={() => setTab("icerik")}
+          type="button"
+        >
+          İçerik
+        </button>
+        <button
+          className={`btn ${tab === "seo" ? "btn-primary" : "btn-ghost"}`}
+          onClick={() => setTab("seo")}
+          type="button"
+        >
+          SEO
+        </button>
+      </div>
 
-        <div className="mt-6 grid gap-5">
-          {/* Başlık */}
+      {tab === "icerik" && (
+        <div className="k-card p-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-stone-800">
-              Başlık <span className="text-red-600">*</span>
-            </label>
+            <label className="text-sm font-medium">Başlık</label>
             <input
               className="input mt-1"
-              placeholder="Örn: Kahve Falında Yılan Görmek"
+              placeholder="Başlık"
               value={d.title}
               onChange={(e) => setD({ ...d, title: e.target.value })}
             />
           </div>
 
-          {/* Slug (opsiyonel) */}
           <div>
-            <label className="block text-sm font-medium text-stone-800">
-              Slug (isteğe bağlı)
-            </label>
-            <input
-              className="input mt-1"
-              placeholder="ornegin: kahve-falinda-yilan-gormek"
-              value={d.slug || ""}
-              onChange={(e) => setD({ ...d, slug: e.target.value })}
-            />
-            <p className="mt-1 text-xs text-stone-500">
-              Boş bırakırsan başlıktan otomatik üretilecektir.
-            </p>
+            <label className="text-sm font-medium">Slug</label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input
+                className="input"
+                placeholder={`Örn: ${autoSlug}`}
+                value={d.slug}
+                onChange={(e) => setD({ ...d, slug: e.target.value })}
+              />
+              <div className="text-xs text-stone-500 self-center">
+                Boş bırakılırsa “{autoSlug}” kullanılır.
+              </div>
+            </div>
           </div>
 
-          {/* Kısa açıklama */}
           <div>
-            <label className="block text-sm font-medium text-stone-800">
-              Kısa açıklama (description)
-            </label>
+            <label className="text-sm font-medium">Kısa açıklama</label>
             <textarea
-              className="input mt-1 h-24"
-              placeholder="Yazının arama sonuçlarında görünecek kısa özeti."
-              value={d.description || ""}
+              className="input h-28 mt-1"
+              placeholder="Meta description ve liste kartları için 120–160 karakter ideal."
+              value={d.description}
               onChange={(e) => setD({ ...d, description: e.target.value })}
             />
           </div>
 
-          {/* Öne çıkarılan görsel (upload) */}
           <div>
-            <label className="block text-sm font-medium text-stone-800">
-              Öne çıkarılan görsel
-            </label>
+            <label className="text-sm font-medium">Öne çıkarılan görsel</label>
             <div className="mt-1">
-              {/* BlogImageUpload yalnızca onDone alır; value prop'u yok */}
-              <BlogImageUpload
-                onDone={(url) => setD({ ...d, image: url })}
-              />
+              <BlogImageUpload onDone={(url) => setD({ ...d, image: url })} />
+              {d.image && (
+                <div className="mt-2 overflow-hidden rounded-xl ring-1 ring-stone-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={d.image} alt="Önizleme" className="h-40 w-full object-cover" />
+                </div>
+              )}
             </div>
-
-            {/* Küçük önizleme */}
-            {d.image ? (
-              <div className="mt-3 overflow-hidden rounded-xl ring-1 ring-stone-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={d.image}
-                  alt="Öne çıkarılan görsel"
-                  className="h-40 w-full object-cover"
-                />
-              </div>
-            ) : (
-              <p className="mt-2 text-xs text-stone-500">
-                Yükledikten sonra burada küçük bir önizleme göreceksin.
-              </p>
-            )}
           </div>
 
-          {/* İçerik */}
           <div>
-            <label className="block text-sm font-medium text-stone-800">
-              İçerik <span className="text-red-600">*</span>
-            </label>
+            <label className="text-sm font-medium">İçerik (HTML/Markdown)</label>
             <textarea
-              className="input mt-1 h-72"
-              placeholder="İçeriği buraya yaz (HTML/Markdown da girebilirsin)."
+              className="input h-64 mt-1"
+              placeholder="İçerik"
               value={d.content}
               onChange={(e) => setD({ ...d, content: e.target.value })}
             />
-            <p className="mt-1 text-xs text-stone-500">
-              Basit HTML etiketleri desteklenir; güvenlik için sunucuda filtrelenir.
-            </p>
           </div>
 
-          {/* Durum */}
           <div>
-            <label className="block text-sm font-medium text-stone-800">Durum</label>
+            <label className="text-sm font-medium">Durum</label>
             <select
               className="input mt-1"
               value={d.status}
-              onChange={(e) => setD({ ...d, status: (e.target.value as Status) || "draft" })}
+              onChange={(e) => setD({ ...d, status: e.target.value as D["status"] })}
             >
               <option value="draft">Taslak</option>
               <option value="pub">Yayınla</option>
             </select>
           </div>
+        </div>
+      )}
 
-          {/* Aksiyonlar */}
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => router.push("/panel/blog")}
-              disabled={saving}
-            >
-              İptal
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onSave}
-              disabled={saving}
-            >
-              {saving ? "Kaydediliyor…" : "Kaydet / Yayınla"}
-            </button>
+      {tab === "seo" && (
+        <div className="k-card p-4 space-y-4">
+          <div>
+            <label className="text-sm font-medium">SEO Başlığı (opsiyonel)</label>
+            <input
+              className="input mt-1"
+              placeholder="Varsa sayfa <title> için özel başlık"
+              value={d.seoTitle || ""}
+              onChange={(e) => setD({ ...d, seoTitle: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">SEO Açıklaması (opsiyonel)</label>
+            <textarea
+              className="input h-28 mt-1"
+              placeholder="Meta description — boşsa kısa açıklama veya içerikten özet üretilecek"
+              value={d.seoDescription || ""}
+              onChange={(e) => setD({ ...d, seoDescription: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">OG/Twitter Görseli (opsiyonel)</label>
+            <div className="mt-1">
+              <BlogImageUpload onDone={(url) => setD({ ...d, ogImage: url })} />
+              {d.ogImage && (
+                <div className="mt-2 overflow-hidden rounded-xl ring-1 ring-stone-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={d.ogImage} alt="OG Önizleme" className="h-40 w-full object-cover" />
+                </div>
+              )}
+              {!d.ogImage && d.image && (
+                <div className="mt-2 text-xs text-stone-500">
+                  OG görseli seçmezsen öne çıkarılan görsel kullanılacak.
+                </div>
+              )}
+            </div>
           </div>
         </div>
+      )}
+
+      <div className="mt-4 flex items-center justify-between">
+        <div className="text-sm text-stone-600">{msg}</div>
+        <button className="btn btn-primary" onClick={onSave} disabled={saving} type="button">
+          {saving ? "Kaydediliyor…" : "Kaydet"}
+        </button>
       </div>
     </div>
   );
