@@ -1,34 +1,24 @@
+// app/api/blog/save/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
+import { revalidatePath } from "next/cache";
 
-/** Bu rotada Node.js runtime kullanıyoruz (Edge yerine) */
 export const runtime = "nodejs";
-// Güvenlik için cache yok
-export const dynamic = "force-dynamic";
 
-type Body = {
-  title?: string;
-  slug?: string;
-  description?: string;
-  content?: string; // HTML veya düz yazı
-  status?: "draft" | "pub";
-  image?: string;
-};
-
-function json(status: number, data: any) {
-  return NextResponse.json(data, { status });
+function JOK(data: any = {}) {
+  return NextResponse.json({ ok: true, ...data });
+}
+function JERR(message: string, status = 400) {
+  return NextResponse.json({ ok: false, error: message }, { status });
 }
 
-/** TR karakter normalize + güvenli slug */
-function normalizeTr(s: string) {
+function slugifyTr(input: string) {
   const map: Record<string, string> = {
     ç: "c", ğ: "g", ı: "i", i: "i", İ: "i", ö: "o", ş: "s", ü: "u",
     Ç: "c", Ğ: "g", I: "i", Ö: "o", Ş: "s", Ü: "u",
   };
-  return s.split("").map((ch) => map[ch] ?? ch).join("");
-}
-function cleanSlug(raw: string) {
-  return normalizeTr(raw)
+  const norm = input.split("").map((ch) => map[ch] ?? ch).join("");
+  return norm
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
@@ -38,90 +28,68 @@ function cleanSlug(raw: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    // ——— 1) BODY'yi al
-    let body: Body | null = null;
+    const raw = await req.text();
+    if (!raw) return JERR("Boş istek gövdesi", 400);
+
+    let body: any;
     try {
-      body = await req.json();
+      body = JSON.parse(raw);
     } catch {
-      return json(400, { ok: false, error: "Geçersiz gövde (JSON bekleniyor)" });
-    }
-    if (!body) {
-      return json(400, { ok: false, error: "Boş istek gövdesi" });
+      return JERR("Geçersiz JSON", 400);
     }
 
-    // ——— 2) Alanları doğrula
     const title = String(body.title || "").trim();
-    const rawSlug = String(body.slug || "").trim();
+    let slug = String(body.slug || "").trim();
     const description = String(body.description || "").trim();
     const content = String(body.content || "").trim();
-    const status: "draft" | "pub" = body.status === "pub" ? "pub" : "draft";
-    const image = body.image ? String(body.image) : undefined;
+    const status: "draft" | "pub" = body.status === "draft" ? "draft" : "pub";
+    const image = body.image ? String(body.image) : "";
 
-    if (!title || !rawSlug || !description || !content) {
-      return json(400, { ok: false, error: "Zorunlu alanlar: title, slug, description, content" });
+    if (!title || !description || !content) {
+      return JERR("Zorunlu alanlar: başlık, açıklama, içerik", 400);
     }
+    if (!slug) slug = slugifyTr(title);
+    if (!slug) return JERR("Slug üretilemedi", 400);
 
-    const slug = cleanSlug(rawSlug);
-    if (!slug) {
-      return json(400, { ok: false, error: "Geçersiz slug" });
-    }
-    if (slug.length > 140) {
-      return json(400, { ok: false, error: "Slug çok uzun" });
-    }
+    const key = `blog:post:${slug}`;
 
-    // ——— 3) Anahtarlar
-    const keyPost = `blog:post:${slug}`;
-    const keyIndex = "blog:index"; // zset (sadece yayınlar)
+    // Mükerer slug kontrolü
+    const exists = await redis.exists(key);
+    if (exists) return JERR("Bu slug zaten var", 409);
 
-    // ——— 4) Çakışma kontrolü
-    // (İstersen mevcut yazıyı güncellemeye çeviririz; burada "yeni kayıt" mantığı var.)
-    const exists = await redis.exists(keyPost);
-    if (exists) {
-      // Mevcutsa 409 veriyoruz
-      return json(409, { ok: false, error: "Bu slug zaten var", slug });
-    }
-
-    const now = Date.now().toString();
-
-    // ——— 5) Kayıt
-    // Taslaklar zset'e eklenmez, yayınlananlar eklenir.
-    const hash: Record<string, string> = {
+    const nowIso = new Date().toISOString();
+    const record = {
       title,
       slug,
       description,
       content,
-      status,
-      createdAt: now,
-      updatedAt: now,
+      status,            // "pub" ise listeye alınır
+      image,             // Vercel Blob URL’si
+      createdAt: nowIso,
+      updatedAt: nowIso,
     };
-    if (image) hash.image = image;
 
-    await redis.hset(keyPost, hash);
+    // Yazıyı kaydet
+    await Promise.all([
+      redis.hset(key, record),
+      status === "pub"
+        ? redis.zadd("blog:index", { score: Date.now(), member: slug })
+        : Promise.resolve(),
+    ]);
 
-    if (status === "pub") {
-      // En yeni yukarıda olacak şekilde score = zaman
-      await redis.zadd(keyIndex, { score: Date.now(), member: slug });
-    } else {
-      // Taslaksa varsa index'ten çıkar (temizlik)
-      await redis.zrem(keyIndex, slug);
-    }
+    // Listeleri/sitemap’i tazele (best-effort)
+    try {
+      revalidatePath("/blog");
+      revalidatePath("/sitemap.xml");
+    } catch {}
 
-    // ——— 6) Yanıt
-    return json(200, { ok: true, slug, status });
+    return JOK({ slug });
   } catch (e: any) {
-    // Her durumda JSON dön
-    console.error("[/api/blog/save] error:", e?.message || e);
-    return json(500, { ok: false, error: "Sunucu hatası" });
+    return JERR(e?.message || "Sunucu hatası", 500);
   }
 }
 
-// Diğer methodlar kapalı
+// İsteğe bağlı sağlık kontrolü (GET 405 yerine anlaşılır yanıt)
 export async function GET() {
-  return json(405, { ok: false, error: "Method Not Allowed" });
-}
-export async function PUT() {
-  return json(405, { ok: false, error: "Method Not Allowed" });
-}
-export async function DELETE() {
-  return json(405, { ok: false, error: "Method Not Allowed" });
+  return JERR("POST kullanın", 405);
 }
