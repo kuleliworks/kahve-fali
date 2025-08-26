@@ -21,7 +21,8 @@ export default function BlogListClient({
   initialCursor,
   limit = 9,
 }: Props) {
-  const [items, setItems] = useState<BlogCardPost>(() => initialItems || []) as any;
+  // DÜZELTME: Dizi tipi kullan
+  const [items, setItems] = useState<BlogCardPost[]>(() => initialItems ?? []);
   const [cursor, setCursor] = useState<number | null>(() => initialCursor);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -51,7 +52,11 @@ export default function BlogListClient({
 
       const res = await fetch(`/api/blog/list?${qs.toString()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+
+      const data = (await res.json()) as {
+        items: BlogCardPost[];
+        nextCursor: number | null;
+      };
 
       const newItems: BlogCardPost[] = Array.isArray(data?.items) ? data.items : [];
       const nextCursor: number | null =
@@ -59,7 +64,7 @@ export default function BlogListClient({
           ? data.nextCursor
           : null;
 
-      setItems((prev) => dedupeAppend(prev as any, newItems) as any);
+      setItems((prev) => dedupeAppend(prev, newItems));
       setCursor(nextCursor);
     } catch (e: any) {
       setErr(e?.message || "Yükleme hatası");
@@ -71,7 +76,7 @@ export default function BlogListClient({
   return (
     <div className="mt-10">
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {(items as any as BlogCardPost[]).map((p) => (
+        {items.map((p) => (
           <article key={p.slug} className="k-card overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {p.image ? (
@@ -116,7 +121,7 @@ export default function BlogListClient({
           </button>
         )}
 
-        {!err && cursor === null && (items as any as BlogCardPost[]).length > 0 && (
+        {!err && cursor === null && items.length > 0 && (
           <div className="text-sm text-stone-500">Hepsi bu kadar 🎉</div>
         )}
       </div>
