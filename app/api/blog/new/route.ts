@@ -1,52 +1,39 @@
 // app/api/blog/new/route.ts
+import { NextResponse } from "next/server";
+import { redis } from "@/lib/redis";
+
 export const runtime = "edge";
 
-import { NextResponse } from "next/server";
-
-type Body = {
-  title?: string;
-  slug?: string;
-  description?: string;
-  image?: string;
-  content?: string;
-  status?: "draft" | "pub";
-};
-
+// TR uyumlu slugify
 function slugify(input: string) {
   return input
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ı/g, "i")
     .replace(/ğ/g, "g")
     .replace(/ü/g, "u")
     .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
     .replace(/ö/g, "o")
     .replace(/ç/g, "c")
-    .replace(/[^a-z0-9\- ]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/--+/g, "-");
 }
 
 export async function POST(req: Request) {
   try {
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-    if (!url || !token) {
-      return NextResponse.json(
-        { error: "Redis ayarları eksik (URL/TOKEN)." },
-        { status: 500 }
-      );
+    const json = await req.json().catch(() => null);
+    if (!json) {
+      return NextResponse.json({ error: "Geçersiz JSON" }, { status: 400 });
     }
 
-    const body = (await req.json().catch(() => ({}))) as Body;
-    const title = (body.title || "").trim();
-    const rawSlug = (body.slug || "").trim();
-    const description = (body.description || "").trim();
-    const image = (body.image || "").trim();
-    const content = (body.content || "").trim();
-    const status: "draft" | "pub" = body.status === "pub" ? "pub" : "draft";
+    const title = (json.title || "").trim();
+    const desired = (json.slug || "").trim();
+    const description = (json.description || "").trim();
+    const content = (json.content || "").trim();
+    const image = (json.image || "").trim();
+    const status = (json.status || "pub").trim(); // "pub" | "draft"
 
     if (!title || !content) {
       return NextResponse.json(
@@ -55,70 +42,38 @@ export async function POST(req: Request) {
       );
     }
 
-    const slug = rawSlug ? slugify(rawSlug) : slugify(title) || `yazi-${Date.now()}`;
-    const key = `blog:post:${slug}`;
-    const now = Date.now();
-    const iso = new Date(now).toISOString();
+    let slug = slugify(desired || title);
+    if (!slug) slug = `yazi-${Date.now()}`;
 
-    // Aynı slug var mı? (EXISTS)
-    {
-      const existsRes = await fetch(`${url}/exists/${encodeURIComponent(key)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      const existsJson = (await existsRes.json().catch(() => ({}))) as any;
-      if (Array.isArray(existsJson?.result) ? existsJson.result[0] === 1 : existsJson?.result === 1) {
-        return NextResponse.json(
-          { error: "Bu slug zaten mevcut." },
-          { status: 409 }
-        );
-      }
+    // Slug çakışması: -2, -3 ekle
+    let finalSlug = slug;
+    for (let i = 2; i < 50; i++) {
+      const exists = await redis.hgetall(`blog:post:${finalSlug}`);
+      if (!exists || Object.keys(exists).length === 0) break;
+      finalSlug = `${slug}-${i}`;
     }
 
-    // Pipeline: ZADD + HSET
-    const pipeCmds = [
-      ["ZADD", "blog:index", now.toString(), slug],
-      [
-        "HSET",
-        key,
-        "title", title,
-        "slug", slug,
-        "description", description,
-        "image", image,
-        "content", content,
-        "status", status,
-        "createdAt", iso
-      ]
-    ];
+    const nowISO = new Date().toISOString();
+    const nowTS = Date.now();
 
-    // 10 saniye timeout ile isteği yap
-    const ac = new AbortController();
-    const tm = setTimeout(() => ac.abort(), 10000);
+    // Kaydet
+    await redis.hset(`blog:post:${finalSlug}`, {
+      title,
+      description,
+      content,
+      image,
+      status,
+      createdAt: nowISO,
+      updatedAt: nowISO,
+    });
 
-    const resp = await fetch(`${url}/pipeline`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(pipeCmds),
-      signal: ac.signal,
-      cache: "no-store",
-    }).finally(() => clearTimeout(tm));
+    // Sıralı liste (yeni->eski için score=timestamp)
+    await redis.zadd("blog:index", { score: nowTS, member: finalSlug });
 
-    const data = await resp.json().catch(() => ({} as any));
-    if (!resp.ok) {
-      return NextResponse.json(
-        { error: data?.error || "Redis kaydı başarısız" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ ok: true, slug }, { status: 200 });
+    return NextResponse.json({ ok: true, slug: finalSlug });
   } catch (e: any) {
-    const aborted = e?.name === "AbortError";
     return NextResponse.json(
-      { error: aborted ? "Sunucu zaman aşımı." : (e?.message || "Sunucu hatası") },
+      { error: e?.message || "Kayıt hatası" },
       { status: 500 }
     );
   }
