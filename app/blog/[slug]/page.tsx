@@ -77,12 +77,17 @@ export default async function Page(
       })
     : "";
 
-  // İçeriği güvenli render et
+  // İçeriği güvenli render et — defaults yerine manuel allowlist
   const clean = sanitizeHtml(post.content || "", {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-      "img", "figure", "figcaption", "h1", "h2", "h3",
-      "table","thead","tbody","tr","th","td"
-    ]),
+    allowedTags: [
+      "p","h1","h2","h3","h4","h5","h6",
+      "strong","em","u","s",
+      "a","ul","ol","li",
+      "blockquote","code","pre","hr","br",
+      "img","figure","figcaption",
+      "table","thead","tbody","tr","th","td",
+      "span","div"
+    ],
     allowedAttributes: {
       a: ["href", "title", "rel", "target"],
       img: ["src", "alt", "title", "width", "height", "loading"],
