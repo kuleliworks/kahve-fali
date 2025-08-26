@@ -13,6 +13,15 @@ type StepData = {
   photos?: File[];
 };
 
+// Güvenli base64url
+function toBase64Url(obj: any) {
+  const str = JSON.stringify(obj);
+  const b64 = typeof window !== "undefined"
+    ? btoa(unescape(encodeURIComponent(str)))
+    : Buffer.from(str, "utf8").toString("base64");
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 export default function StepForm() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<StepData>({});
@@ -39,56 +48,47 @@ export default function StepForm() {
   };
 
   const onProgressDone = useCallback(async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30 sn hard timeout
-
     try {
-      const photosCount = data.photos?.length || 0;
+      // 1) İstemcide ID oluştur
+      const payload = {
+        n: String(data.name || "").slice(0, 60),
+        g: String(data.gender || ""),
+        a: Number(data.age || 0) || 0,
+        i: Number(data.photos?.length || 0) || 0, // sadece sayıyı gömeceğiz
+        t: Date.now(),
+      };
+      const id = toBase64Url(payload);
 
-      const res = await fetch("/api/readings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        signal: controller.signal,
-        body: JSON.stringify({
-          name: data.name,
-          gender: data.gender,
-          age: data.age,
-          photosCount, // SADECE SAYI
-        }),
+      // 2) Panel log’unu arkadan, beklemeden gönder (varsa)
+      const logBody = JSON.stringify({
+        name: payload.n,
+        gender: payload.g,
+        age: payload.a,
+        photosCount: payload.i,
+        readingId: id,
       });
 
-      clearTimeout(timeout);
-
-      // Yanıtı güvenli çöz
-      const ct = res.headers.get("content-type") || "";
-      let payload: any = null;
-      if (ct.includes("application/json")) {
-        payload = await res.json().catch(() => null);
-      } else {
-        const text = await res.text().catch(() => "");
-        payload = text ? { error: text } : null;
+      try {
+        // navigator.sendBeacon varsa onu kullan, yoksa keepalive fetch
+        if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
+          const blob = new Blob([logBody], { type: "application/json" });
+          navigator.sendBeacon("/api/fal-log", blob);
+        } else {
+          fetch("/api/fal-log", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            keepalive: true,
+            body: logBody,
+          }).catch(() => {});
+        }
+      } catch {
+        // log gönderilemese de önemli değil
       }
 
-      if (!res.ok) {
-        const msg =
-          (payload && (payload.error || payload.message)) ||
-          `Sunucu hatası (HTTP ${res.status})`;
-        throw new Error(msg);
-      }
-
-      const id = payload?.id;
-      if (!id) {
-        throw new Error("Sunucu yanıtı beklenmedik (id yok).");
-      }
-
+      // 3) Hemen sonuç sayfasına git (hiç ağ beklemesi yok)
       router.push(`/fal/${encodeURIComponent(id)}`);
     } catch (e: any) {
-      if (e?.name === "AbortError") {
-        setError("İstek zaman aşımına uğradı. Lütfen tekrar dene.");
-      } else {
-        setError(e?.message || "Fal oluşturulurken bir hata oluştu.");
-      }
+      setError(e?.message || "Beklenmeyen bir hata oluştu.");
     } finally {
       setShowProgress(false);
     }
@@ -232,6 +232,7 @@ export default function StepForm() {
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </>
 
+      {/* 20–30 sn simülasyon; bittiğinde onProgressDone çalışır */}
       {showProgress && <ProgressOverlay onDone={onProgressDone} minMs={20000} maxMs={30000} />}
     </div>
   );
