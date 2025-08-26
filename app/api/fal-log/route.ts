@@ -1,73 +1,31 @@
+import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
-
-type Body = {
-  name?: string;
-  age?: number | string;
-  gender?: string;
-  photosCount?: number | string;
-  readingId?: string;
-  notes?: string;
-};
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const data = (await req.json()) as Body;
+    const body = await req.json().catch(() => ({}));
+    const { name = "", age = 0, gender = "", photosCount = 0, readingId = "" } = body || {};
 
     const now = Date.now();
-    const id = (data.readingId || crypto.randomUUID()).toString();
+    const createdAt = new Date(now).toISOString();
 
-    const item = {
-      id,
-      name: (data.name || "").toString().trim(),
-      age: (data.age || "").toString().trim(),
-      gender: (data.gender || "").toString().trim(),
-      photosCount: Number(data.photosCount || 0),
-      notes: (data.notes || "").toString().trim(),
-      createdAt: now,
-    };
-
-    await redis.hset(`fal:item:${id}`, item as Record<string, any>);
-    await redis.zadd("fal:index", { score: now, member: id });
-
-    const total = await redis.zcard("fal:index");
-    const keep = 1000;
-    if (total > keep) {
-      const toDelete = total - keep;
-      const oldUnknown = await redis.zrange("fal:index", 0, toDelete - 1);
-      const oldIds: string[] = (Array.isArray(oldUnknown) ? oldUnknown : []).map((v) => String(v));
-      if (oldIds.length) {
-        const p = redis.pipeline();
-        p.zrem("fal:index", ...oldIds);
-        oldIds.forEach((oid) => p.del(`fal:item:${oid}`));
-        await p.exec();
-      }
-    }
-
-    // (opsiyonel) Slack
-    const webhook = process.env.SLACK_WEBHOOK_URL;
-    if (webhook) {
-      const base = process.env.SITE_URL || "https://kahvefalin.com";
-      const url = `${base}/fal/${encodeURIComponent(id)}`;
-      const text =
-        `Yeni fal: *${item.name || "-"}* • ${item.age || "-"} / ${item.gender || "-"} ` +
-        `• foto:${item.photosCount} • ${url}`;
-      await fetch(webhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+    try {
+      await redis.hset(`fal:item:${readingId}`, {
+        name: String(name).slice(0, 60),
+        gender: String(gender),
+        age: String(Number(age) || 0),
+        photosCount: String(Number(photosCount) || 0),
+        createdAt,
       });
+      await redis.zadd("fal:index", { score: now, member: readingId });
+    } catch {
+      // Redis yoksa sessiz geç
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { "content-type": "application/json" },
-    });
-  } catch {
-    return new Response(JSON.stringify({ ok: false, error: "Kaydedilemedi." }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
-    });
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Log hatası" }, { status: 500 });
   }
 }
