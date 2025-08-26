@@ -6,26 +6,44 @@ import sanitizeHtml from "sanitize-html";
 import { redis } from "@/lib/redis";
 import { SITE } from "@/lib/seo";
 
-/** Upstash tip karmaşasından kaçınmak için basit yardımcılar */
+/** Yardımcılar */
 async function getPost(slug: string) {
   const row = await redis.hgetall<Record<string, string>>(`blog:post:${slug}`);
   return row;
 }
+
 async function getRecent(limit: number, except?: string) {
-  const slugs = (await redis.zrange<string>("blog:index", 0, limit + 2, { rev: true })) || [];
+  // GENERIC KULLANMA — önce unknown[], sonra güvenli daralt
+  const raw = (await redis.zrange("blog:index", 0, limit + 2, { rev: true })) as unknown[];
+  const slugs = raw.filter((x): x is string => typeof x === "string");
   const filtered = slugs.filter((s) => s && s !== except).slice(0, limit);
+
   const items = await Promise.all(
     filtered.map(async (s) => {
       const it = await getPost(s);
       if (!it) return null;
-      return { slug: s, title: it.title, description: it.description, image: it.image, createdAt: it.createdAt };
+      return {
+        slug: s,
+        title: it.title,
+        description: it.description,
+        image: it.image,
+        createdAt: it.createdAt,
+      };
     })
   );
-  return items.filter(Boolean) as Array<{ slug: string; title?: string; description?: string; image?: string; createdAt?: string }>;
+  return items.filter(Boolean) as Array<{
+    slug: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    createdAt?: string;
+  }>;
 }
 
 /** Metadata (OG/Twitter/Title/Description) */
-export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata(
+  props: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
   const { slug } = await props.params;
   const post = await getPost(slug);
   if (!post) return { title: "Bulunamadı" };
@@ -55,7 +73,7 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
   };
 }
 
-/** sanitize-html seçeneklerini doğrudan diziyle veriyoruz (defaults kullanmıyoruz) */
+/** sanitize-html whitelist */
 const ALLOWED_TAGS = [
   "p","h1","h2","h3","h4","strong","em","u","s","a","ul","ol","li",
   "blockquote","code","pre","hr","br",
@@ -91,21 +109,23 @@ export default async function Page(props: { params: Promise<{ slug: string }> })
   });
 
   const dateStr = post.createdAt ? new Date(post.createdAt).toLocaleDateString("tr-TR") : "";
-
-  // Benzer yazılar (basit: en yeni 6’dan makaleyi hariç tut)
   const related = await getRecent(6, slug);
 
-  // JSON-LD — Article + BreadcrumbList
+  // JSON-LD’ler
   const jsonLdArticle = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: post.title,
     description: post.description || SITE.description,
-    image: post.image ? [post.image] : [ `${SITE.url}/resim/sanal-kahve-fali-x2.png` ],
+    image: post.image ? [post.image] : [`${SITE.url}/resim/sanal-kahve-fali-x2.png`],
     datePublished: post.createdAt || undefined,
     dateModified: post.updatedAt || post.createdAt || undefined,
     author: [{ "@type": "Organization", name: SITE.name }],
-    publisher: { "@type": "Organization", name: SITE.name, logo: { "@type": "ImageObject", url: `${SITE.url}/resim/sanal-kahve-fali-x2.png` } },
+    publisher: {
+      "@type": "Organization",
+      name: SITE.name,
+      logo: { "@type": "ImageObject", url: `${SITE.url}/resim/sanal-kahve-fali-x2.png` },
+    },
     mainEntityOfPage: `${SITE.url}/blog/${slug}`,
   };
 
@@ -121,16 +141,12 @@ export default async function Page(props: { params: Promise<{ slug: string }> })
 
   return (
     <section className="mx-auto max-w-5xl px-4 py-10">
-      {/* BREADCRUMB */}
+      {/* Breadcrumb */}
       <nav aria-label="breadcrumb" className="text-sm text-stone-600">
         <ol className="flex flex-wrap items-center gap-1">
-          <li>
-            <Link href="/" className="hover:underline">Ana Sayfa</Link>
-          </li>
+          <li><Link href="/" className="hover:underline">Ana Sayfa</Link></li>
           <li className="opacity-60">/</li>
-          <li>
-            <Link href="/blog" className="hover:underline">Blog</Link>
-          </li>
+          <li><Link href="/blog" className="hover:underline">Blog</Link></li>
           <li className="opacity-60">/</li>
           <li className="truncate max-w-[60vw] sm:max-w-none">
             <span className="font-medium text-stone-800">{post.title}</span>
@@ -138,7 +154,7 @@ export default async function Page(props: { params: Promise<{ slug: string }> })
         </ol>
       </nav>
 
-      {/* HERO */}
+      {/* Hero */}
       <header className="mt-4">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{post.title}</h1>
         {dateStr && <div className="mt-2 text-sm text-stone-600">{dateStr}</div>}
@@ -155,15 +171,12 @@ export default async function Page(props: { params: Promise<{ slug: string }> })
         </div>
       )}
 
-      {/* İÇERİK */}
+      {/* İçerik */}
       <article className="prose prose-stone max-w-none prose-headings:scroll-mt-20">
-        <div
-          className="k-card mt-6 p-6 sm:p-8"
-          dangerouslySetInnerHTML={{ __html: clean }}
-        />
+        <div className="k-card mt-6 p-6 sm:p-8" dangerouslySetInnerHTML={{ __html: clean }} />
       </article>
 
-      {/* PAYLAŞ */}
+      {/* Paylaş */}
       <div className="mt-6 flex flex-wrap items-center gap-2">
         <span className="text-sm text-stone-600">Paylaş:</span>
         <a
@@ -192,7 +205,7 @@ export default async function Page(props: { params: Promise<{ slug: string }> })
         </a>
       </div>
 
-      {/* BENZER YAZILAR */}
+      {/* Benzer yazılar */}
       {related.length > 0 && (
         <section className="mt-12">
           <h2 className="text-xl font-semibold">Benzer yazılar</h2>
