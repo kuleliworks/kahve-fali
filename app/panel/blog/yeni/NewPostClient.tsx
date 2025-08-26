@@ -1,226 +1,139 @@
+// app/panel/blog/yeni/NewPostClient.tsx
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import BlogImageUpload from "@/components/BlogImageUpload";
 
-function slugifyTr(input: string) {
-  const map: Record<string, string> = {
-    ç: "c", ğ: "g", ı: "i", i: "i", İ: "i", ö: "o", ş: "s", ü: "u",
-    Ç: "c", Ğ: "g", I: "i", Ö: "o", Ş: "s", Ü: "u",
-  };
-  const norm = input.split("").map((ch) => map[ch] ?? ch).join("");
-  return norm
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-type PostDraft = {
-  title: string;
-  slug: string;
-  description: string;
-  content: string;
-  status: "draft" | "pub";
-  image?: string;
-};
+type Status = "pub" | "draft";
 
 export default function NewPostClient() {
-  const router = useRouter();
-  const sp = useSearchParams();
-
-  const initTitle = sp.get("title") || "";
-  const initSlug = sp.get("slug") || "";
-
-  const [d, setD] = useState<PostDraft>({
-    title: initTitle,
-    slug: initSlug ? slugifyTr(initSlug) : "",
+  const [d, setD] = useState({
+    title: "",
+    slug: "",
     description: "",
+    image: "",
     content: "",
-    status: "pub",
-    image: undefined,
+    status: "pub" as Status,
   });
-
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-
-  const suggestedSlug = useMemo(
-    () => (d.title ? slugifyTr(d.title) : ""),
-    [d.title]
-  );
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (saving) return;
     setErr(null);
-    setMsg(null);
+
+    if (!d.title.trim()) {
+      setErr("Başlık zorunludur.");
+      return;
+    }
+
     setSaving(true);
-
     try {
-      const title = d.title.trim();
-      const slug = (d.slug || suggestedSlug).trim();
-      const description = d.description.trim();
-      const content = d.content.trim();
-      const status = d.status;
-      const image = d.image || "";
-
-      if (!title || !slug || !description || !content) {
-        throw new Error("Zorunlu alanlar: Başlık, Slug, Açıklama, İçerik");
-      }
-
-      // Kasıtsız abort’ları tetiklememek için AbortController/timeout YOK.
       const res = await fetch("/api/blog/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        keepalive: true,
-        body: JSON.stringify({ title, slug, description, content, status, image }),
+        body: JSON.stringify(d),
       });
 
-      const raw = await res.text();
-      let json: any;
+      const text = await res.text();
+      let json: any = {};
       try {
-        json = JSON.parse(raw);
+        json = JSON.parse(text);
       } catch {
-        throw new Error(`Geçersiz yanıt: ${raw.slice(0, 200)}`);
+        json = { ok: false, error: text || `HTTP ${res.status}` };
       }
 
       if (!res.ok || !json?.ok) {
-        if (res.status === 409) {
-          throw new Error("Bu slug zaten var. Lütfen farklı bir bağlantı deneyin.");
-        }
-        throw new Error(json?.error || `İstek başarısız (HTTP ${res.status})`);
+        throw new Error(json?.error || `HTTP ${res.status}`);
       }
 
-      setMsg("İçerik kaydedildi.");
-
-      const go = confirm("İçerik kaydedildi. Yazıyı görüntülemek ister misiniz?");
+      // Başarılı — iki seçenekli basit confirm
+      const go = confirm("Yazı kaydedildi. 'Tamam' ile yazıya git, 'İptal' ile yeni yazı ekle.");
       if (go) {
         router.push(`/blog/${encodeURIComponent(json.slug)}`);
       } else {
-        setD({
-          title: "",
-          slug: "",
-          description: "",
-          content: "",
-          status: "pub",
-          image: undefined,
-        });
+        setD({ title: "", slug: "", description: "", image: "", content: "", status: d.status });
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     } catch (e: any) {
-      const m =
-        e?.name === "AbortError"
-          ? "İstek iptal edildi. Tekrar deneyin."
-          : e?.message || "Bilinmeyen bir hata.";
-      setErr(m);
+      setErr(e?.message || "Kaydetme başarısız.");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-semibold">Yeni Blog Yazısı</h1>
-      <p className="mt-2 text-sm text-stone-600">
-        Zorunlu: Başlık, Slug, Açıklama, İçerik. “Yayınla” seçilirse /blog listesine düşer.
-      </p>
+    <form onSubmit={handleSubmit} className="mx-auto max-w-3xl p-4">
+      <div className="k-card">
+        <h1 className="text-xl font-semibold">Yeni Yazı</h1>
 
-      <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
-        <div>
-          <label className="block text-sm font-medium">Başlık</label>
-          <input
-            className="input mt-1"
-            value={d.title}
-            onChange={(e) => setD({ ...d, title: e.target.value })}
-            placeholder="Örn: Kahve Falında Yılan Görmek"
-          />
-          {d.title && (
-            <div className="mt-1 text-xs text-stone-500">
-              Önerilen slug: <code>{suggestedSlug}</code>
-            </div>
-          )}
-        </div>
+        <label className="mt-4 block text-sm font-medium">Başlık</label>
+        <input
+          className="input mt-1"
+          value={d.title}
+          onChange={(e) => setD({ ...d, title: e.target.value })}
+          placeholder="Örn: Kahve Falı Nedir?"
+        />
 
-        <div>
-          <label className="block text-sm font-medium">Slug (bağlantı)</label>
-          <input
-            className="input mt-1"
-            value={d.slug}
-            onChange={(e) => setD({ ...d, slug: slugifyTr(e.target.value) })}
-            onBlur={() => {
-              if (!d.slug && suggestedSlug) setD({ ...d, slug: suggestedSlug });
-            }}
-            placeholder="ornegin-kahve-falinda-yilan-gormek"
-          />
-        </div>
+        <label className="mt-4 block text-sm font-medium">Slug (opsiyonel)</label>
+        <input
+          className="input mt-1"
+          value={d.slug}
+          onChange={(e) => setD({ ...d, slug: e.target.value })}
+          placeholder="kahve-fali-nedir"
+        />
 
-        <div>
-          <label className="block text-sm font-medium">Açıklama (meta description)</label>
-          <input
-            className="input mt-1"
-            value={d.description}
-            onChange={(e) => setD({ ...d, description: e.target.value })}
-            placeholder="150–160 karakterlik özet."
-            maxLength={220}
-          />
-          <div className="mt-1 text-xs text-stone-500">
-            {d.description.length} karakter
-          </div>
-        </div>
+        <label className="mt-4 block text-sm font-medium">Kısa açıklama (description)</label>
+        <textarea
+          className="input mt-1 h-24"
+          value={d.description}
+          onChange={(e) => setD({ ...d, description: e.target.value })}
+          placeholder="Arama sonuçları için 150–160 karakter"
+        />
 
-        <div>
-          <label className="block text-sm font-medium">Öne çıkarılan görsel</label>
-          <div className="mt-1">
-            <BlogImageUpload onDone={(url) => setD({ ...d, image: url })} />
-          </div>
+        <label className="mt-4 block text-sm font-medium">Öne çıkarılan görsel</label>
+        <div className="mt-1">
+          <BlogImageUpload onDone={(url) => setD({ ...d, image: url })} />
           {d.image && (
-            <div className="mt-2">
+            <div className="mt-2 overflow-hidden rounded-xl border">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={d.image}
-                alt="Önizleme"
-                className="h-40 w-full rounded-lg object-cover ring-1 ring-stone-200"
-              />
+              <img src={d.image} alt="Önizleme" className="h-48 w-full object-cover" />
             </div>
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium">İçerik</label>
-          <textarea
-            className="input mt-1 h-64"
-            value={d.content}
-            onChange={(e) => setD({ ...d, content: e.target.value })}
-            placeholder="HTML veya düz yazı/markdown"
-          />
-        </div>
+        <label className="mt-4 block text-sm font-medium">İçerik (HTML veya Markdown)</label>
+        <textarea
+          className="input mt-1 h-64"
+          value={d.content}
+          onChange={(e) => setD({ ...d, content: e.target.value })}
+          placeholder="<p>...</p>"
+        />
 
-        <div>
-          <label className="block text-sm font-medium">Durum</label>
-          <select
-            className="input mt-1"
-            value={d.status}
-            onChange={(e) => setD({ ...d, status: e.target.value as "draft" | "pub" })}
-          >
-            <option value="pub">Yayınla</option>
-            <option value="draft">Taslak</option>
-          </select>
-        </div>
-
-        {err && <p className="text-sm text-red-600">{err}</p>}
-        {msg && <p className="text-sm text-emerald-600">{msg}</p>}
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="btn btn-primary disabled:opacity-60"
+        <label className="mt-4 block text-sm font-medium">Durum</label>
+        <select
+          className="input mt-1"
+          value={d.status}
+          onChange={(e) => setD({ ...d, status: e.target.value as Status })}
         >
-          {saving ? "Kaydediliyor…" : "Kaydet"}
-        </button>
-      </form>
-    </div>
+          <option value="pub">Yayınla</option>
+          <option value="draft">Taslak</option>
+        </select>
+
+        {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
+
+        <div className="mt-6 flex gap-3">
+          <button type="submit" disabled={saving} className="btn btn-primary">
+            {saving ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={() => router.push("/panel/blog")}>
+            İptal
+          </button>
+        </div>
+      </div>
+    </form>
   );
 }
