@@ -203,7 +203,7 @@ const onFiles = useCallback(async (files: FileList | null) => {
 
   const onProgressDone = useCallback(async () => {
     try {
-      const photos64 = await filesToBase64(data.photos || []);
+      const photosCount = data.photos?.length || 0; // sadece sayı
       const res = await fetch("/api/readings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -212,9 +212,10 @@ const onFiles = useCallback(async (files: FileList | null) => {
           name: data.name,
           gender: data.gender,
           age: data.age,
-          photos: photos64,
+          photosCount, // <-- sadece sayı gönderiyoruz
         }),
       });
+
 
       const json = await res.json().catch(() => ({} as any));
       if (res.ok && json?.id) {
