@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   // GEÇİCİ ZORLAMA: absolute kullan ve markayı ekle
   title: { absolute: "Online Kahve Falı | Sanal Kahve Falı" },
   description:
-    "Kahve fincanı fotoğraflarını yükle, adım adım ilerle ve modern arayüzde online kahve falı sonucunu hemen gör. Hızlı, güvenli ve çerezsiz.",
+    "Sanal kahve falı ile geleceğini keşfet! Fotoğraf yükle, anında yorum al. Eğlenceli, güvenilir ve hızlı kahve falı deneyimini yaşa.",
   alternates: { canonical: "/" },
 };
 
