@@ -47,52 +47,51 @@ export default function StepForm() {
     setShowProgress(true);
   };
 
-  const onProgressDone = useCallback(async () => {
+const onProgressDone = useCallback(async () => {
+  try {
+    // 1) İstemcide ID oluştur
+    const payload = {
+      n: String(data.name || "").slice(0, 60),
+      g: String(data.gender || ""),
+      a: Number(data.age || 0) || 0,
+      i: Number(data.photos?.length || 0) || 0,
+      t: Date.now(),
+    };
+    const id = toBase64Url(payload);
+
+    // 2) Panel log’unu kısa süreli bekleyelim (max ~600ms), sonra push
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 600);
+
     try {
-      // 1) İstemcide ID oluştur
-      const payload = {
-        n: String(data.name || "").slice(0, 60),
-        g: String(data.gender || ""),
-        a: Number(data.age || 0) || 0,
-        i: Number(data.photos?.length || 0) || 0, // sadece sayıyı gömeceğiz
-        t: Date.now(),
-      };
-      const id = toBase64Url(payload);
-
-      // 2) Panel log’unu arkadan, beklemeden gönder (varsa)
-      const logBody = JSON.stringify({
-        name: payload.n,
-        gender: payload.g,
-        age: payload.a,
-        photosCount: payload.i,
-        readingId: id,
-      });
-
-      try {
-        // navigator.sendBeacon varsa onu kullan, yoksa keepalive fetch
-        if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
-          const blob = new Blob([logBody], { type: "application/json" });
-          navigator.sendBeacon("/api/fal-log", blob);
-        } else {
-          fetch("/api/fal-log", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            keepalive: true,
-            body: logBody,
-          }).catch(() => {});
-        }
-      } catch {
-        // log gönderilemese de önemli değil
-      }
-
-      // 3) Hemen sonuç sayfasına git (hiç ağ beklemesi yok)
-      router.push(`/fal/${encodeURIComponent(id)}`);
-    } catch (e: any) {
-      setError(e?.message || "Beklenmeyen bir hata oluştu.");
+      await fetch("/api/fal-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: payload.n,
+          gender: payload.g,
+          age: payload.a,
+          photosCount: payload.i,
+          readingId: id,
+        }),
+        keepalive: true,
+        signal: controller.signal,
+      }).catch(() => {});
+    } catch {
+      // log düşmese bile devam
     } finally {
-      setShowProgress(false);
+      clearTimeout(t);
     }
-  }, [data, router]);
+
+    // 3) Hemen sonuç sayfasına git
+    router.push(`/fal/${encodeURIComponent(id)}`);
+  } catch (e: any) {
+    setError(e?.message || "Beklenmeyen bir hata oluştu.");
+  } finally {
+    setShowProgress(false);
+  }
+}, [data, router]);
+
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-md md:p-8">
