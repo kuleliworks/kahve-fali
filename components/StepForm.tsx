@@ -13,22 +13,20 @@ type StepData = {
   photos?: File[];
 };
 
-// Base64URL (paylaşılabilir id)
-function toBase64Url(obj: unknown) {
-  const json = JSON.stringify(obj);
-  // btoa, UTF-8 güvenli hale getir
-  const bin = typeof window === "undefined" ? json : unescape(encodeURIComponent(json));
-  const b64 = typeof window === "undefined" ? Buffer.from(json).toString("base64") : btoa(bin);
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+/** UTF-8 güvenli Base64URL encoder (tarayıcı) */
+function base64UrlEncode(str: string) {
+  const utf8 = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+    String.fromCharCode(parseInt(p1, 16))
+  );
+  return btoa(utf8).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 export default function StepForm() {
-  const router = useRouter();
-
   const [step, setStep] = useState(0);
   const [data, setData] = useState<StepData>({});
   const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const canNext = useMemo(() => {
     if (step === 0) return !!data.name && (data.photos?.length || 0) > 0;
@@ -39,7 +37,7 @@ export default function StepForm() {
 
   const onFiles = useCallback((files: FileList | null) => {
     if (!files) return;
-    // Yalın: sadece önizleme & adet sayısı (upload yok)
+    // En fazla 3, çok büyük dosyalar varsa yine de sayıyı sınırla (yükleme yapmıyoruz)
     const list = Array.from(files).slice(0, 3);
     setData((d) => ({ ...d, photos: list }));
   }, []);
@@ -49,22 +47,20 @@ export default function StepForm() {
     setShowProgress(true);
   };
 
-  // İlerleme bittiğinde: id üret, hafif log at, sonuç sayfasına git
-  const onProgressDone = useCallback(async () => {
+  const onProgressDone = useCallback(() => {
     try {
+      // Sunucuya görsel göndermiyoruz; ID’yi local üret
+      const now = Date.now();
       const payload = {
-        n: (data.name || "").trim(),
+        n: String(data.name || "").slice(0, 80),
         g: data.gender || "",
-        a: data.age || 0,
+        a: typeof data.age === "number" ? data.age : 0,
         i: data.photos?.length || 0,
-        t: Date.now(),
+        t: now,
       };
-      const readingId = toBase64Url(payload);
+      const readingId = base64UrlEncode(JSON.stringify(payload));
 
-      // Log’u kısa timeout + keepalive ile gönder (başarısız olsa da yolumuza devam)
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000); // 2 sn sınır
-
+      // Panel için log’u fire-and-forget gönder (abort YOK, keepalive VAR)
       fetch("/api/fal-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -77,13 +73,12 @@ export default function StepForm() {
           notes: "",
         }),
         keepalive: true,
-        signal: controller.signal,
-      }).catch(() => { /* sessizce geç */ }).finally(() => clearTimeout(timer));
+      }).catch(() => { /* sessizce geç */ });
 
-      // Hemen sonuç sayfasına gönder
+      // Sonuç sayfasına git
       router.push(`/fal/${encodeURIComponent(readingId)}`);
     } catch (e: any) {
-      setError(e?.message || "Fal sayfasına yönlendirilirken bir hata oluştu.");
+      setError(e?.message || "Fal oluşturulurken bir hata oluştu.");
       setShowProgress(false);
     }
   }, [data, router]);
@@ -98,7 +93,7 @@ export default function StepForm() {
         </div>
       </div>
 
-      {/* Step göstergesi */}
+      {/* Adım noktaları */}
       <div className="mb-6 flex items-center justify-center gap-2">
         {[0, 1, 2].map((i) => (
           <span key={i} className={`step-dot ${i <= step ? "active" : ""}`} />
@@ -186,9 +181,11 @@ export default function StepForm() {
               max={99}
               placeholder="Örn: 27"
               value={data.age ?? ""}
-              onChange={(e) =>
-                setData((d) => ({ ...d, age: e.target.value ? Number(e.target.value) : undefined }))
-              }
+              onChange={(e) => {
+                const v = e.target.value;
+                const num = v === "" ? undefined : Math.max(0, Number(v));
+                setData((d) => ({ ...d, age: num }));
+              }}
             />
           </div>
         )}
@@ -228,8 +225,13 @@ export default function StepForm() {
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </>
 
-      {/* İlerleme simülasyonu (20–30 sn) */}
-      {showProgress && <ProgressOverlay onDone={onProgressDone} minMs={20000} maxMs={30000} />}
+      {showProgress && (
+        <ProgressOverlay
+          onDone={onProgressDone}
+          minMs={20000}
+          maxMs={30000}
+        />
+      )}
     </div>
   );
 }
