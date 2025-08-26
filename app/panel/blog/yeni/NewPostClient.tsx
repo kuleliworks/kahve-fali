@@ -1,139 +1,227 @@
-// app/panel/blog/yeni/NewPostClient.tsx
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef } from "react";
 import BlogImageUpload from "@/components/BlogImageUpload";
 
-type Status = "pub" | "draft";
+type Draft = {
+  title?: string;
+  slug?: string;
+  description?: string;
+  image?: string;
+  content?: string;
+  status?: "draft" | "pub";
+};
 
 export default function NewPostClient() {
-  const [d, setD] = useState({
-    title: "",
-    slug: "",
-    description: "",
-    image: "",
-    content: "",
-    status: "pub" as Status,
-  });
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const router = useRouter();
+  const [d, setD] = useState<Draft>({ status: "draft" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Kayıt sonrası üstte göstereceğimiz bildirim
+  const [notice, setNotice] = useState<{ slug: string } | null>(null);
+
+  const controllerRef = useRef<AbortController | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null);
+    setError(null);
 
-    if (!d.title.trim()) {
-      setErr("Başlık zorunludur.");
+    const title = (d.title || "").trim();
+    const content = (d.content || "").trim();
+    if (!title || !content) {
+      setError("Başlık ve içerik zorunludur.");
       return;
     }
 
-    setSaving(true);
     try {
-      const res = await fetch("/api/blog/save", {
+      setLoading(true);
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
+
+      // slug’ı olduğu gibi gönderiyoruz (backend uniq kontrolü var)
+      const payload = {
+        title,
+        slug: (d.slug || "").trim(),
+        description: (d.description || "").trim(),
+        image: (d.image || "").trim(),
+        content,
+        status: d.status || "draft",
+      };
+
+      const res = await fetch("/api/blog/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
         cache: "no-store",
-        body: JSON.stringify(d),
       });
 
-      const text = await res.text();
-      let json: any = {};
-      try {
-        json = JSON.parse(text);
-      } catch {
-        json = { ok: false, error: text || `HTTP ${res.status}` };
-      }
-
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || `HTTP ${res.status}`);
+        throw new Error(json?.error || "Kayıt başarısız.");
       }
 
-      // Başarılı — iki seçenekli basit confirm
-      const go = confirm("Yazı kaydedildi. 'Tamam' ile yazıya git, 'İptal' ile yeni yazı ekle.");
-      if (go) {
-        router.push(`/blog/${encodeURIComponent(json.slug)}`);
+      // YÖNLENDİRME YOK — Sayfa içinde “başarılı” bar’ı göster
+      const finalSlug: string = json.slug;
+      setNotice({ slug: finalSlug });
+      // Formu sıfırla
+      setD({ status: "draft" });
+      (document.getElementById("title") as HTMLInputElement | null)?.focus();
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        setError("İstek iptal edildi, tekrar deneyin.");
       } else {
-        setD({ title: "", slug: "", description: "", image: "", content: "", status: d.status });
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        setError(err?.message || "Beklenmedik hata.");
       }
-    } catch (e: any) {
-      setErr(e?.message || "Kaydetme başarısız.");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
-  }
+  };
+
+  const onNewAgain = () => {
+    setNotice(null);
+    setD({ status: "draft" });
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-3xl p-4">
-      <div className="k-card">
-        <h1 className="text-xl font-semibold">Yeni Yazı</h1>
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      {/* ÜST BİLDİRİM BAR */}
+      {notice && (
+        <div className="fixed inset-x-0 top-0 z-50">
+          <div className="mx-auto max-w-3xl px-4">
+            <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-emerald-800">
+                  <strong>Yazı oluşturuldu.</strong> İşlemin tamamlandı.
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() =>
+                      window.open(`/blog/${encodeURIComponent(notice.slug)}`, "_blank", "noopener")
+                    }
+                  >
+                    Yazıyı gör
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={onNewAgain}>
+                    Yeni yazı
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-        <label className="mt-4 block text-sm font-medium">Başlık</label>
-        <input
-          className="input mt-1"
-          value={d.title}
-          onChange={(e) => setD({ ...d, title: e.target.value })}
-          placeholder="Örn: Kahve Falı Nedir?"
-        />
+      <h1 className="mb-6 text-2xl font-semibold">Yeni Blog Yazısı</h1>
 
-        <label className="mt-4 block text-sm font-medium">Slug (opsiyonel)</label>
-        <input
-          className="input mt-1"
-          value={d.slug}
-          onChange={(e) => setD({ ...d, slug: e.target.value })}
-          placeholder="kahve-fali-nedir"
-        />
+      <form onSubmit={handleSubmit} className="k-card space-y-4">
+        {/* Başlık */}
+        <div>
+          <label htmlFor="title" className="block text-sm font-medium text-stone-700">
+            Başlık *
+          </label>
+          <input
+            id="title"
+            className="input mt-1"
+            placeholder="Örn: Kahve Falında Yılan Görmek"
+            value={d.title || ""}
+            onChange={(e) => setD({ ...d, title: e.target.value })}
+            required
+          />
+        </div>
 
-        <label className="mt-4 block text-sm font-medium">Kısa açıklama (description)</label>
-        <textarea
-          className="input mt-1 h-24"
-          value={d.description}
-          onChange={(e) => setD({ ...d, description: e.target.value })}
-          placeholder="Arama sonuçları için 150–160 karakter"
-        />
+        {/* Slug */}
+        <div>
+          <label htmlFor="slug" className="block text-sm font-medium text-stone-700">
+            URL Slug (isteğe bağlı)
+          </label>
+          <input
+            id="slug"
+            className="input mt-1"
+            placeholder="ornegin-kahve-falinda-yilan-gormek"
+            value={d.slug || ""}
+            onChange={(e) => setD({ ...d, slug: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-stone-500">
+            Boş bırakırsan otomatik üretilecek. Türkçe karakterleri ve boşlukları kendiliğinden
+            dönüştürüyoruz.
+          </p>
+        </div>
 
-        <label className="mt-4 block text-sm font-medium">Öne çıkarılan görsel</label>
-        <div className="mt-1">
-          <BlogImageUpload onDone={(url) => setD({ ...d, image: url })} />
+        {/* Açıklama */}
+        <div>
+          <label htmlFor="desc" className="block text-sm font-medium text-stone-700">
+            Kısa açıklama (description)
+          </label>
+          <textarea
+            id="desc"
+            className="input mt-1 h-24"
+            placeholder="Meta açıklama — aramalarda özet olarak görünebilir."
+            value={d.description || ""}
+            onChange={(e) => setD({ ...d, description: e.target.value })}
+          />
+        </div>
+
+        {/* Öne çıkarılan görsel */}
+        <div>
+          <label className="block text-sm font-medium text-stone-700">
+            Öne çıkarılan görsel
+          </label>
+          <div className="mt-1">
+            <BlogImageUpload onDone={(url) => setD({ ...d, image: url })} />
+          </div>
           {d.image && (
-            <div className="mt-2 overflow-hidden rounded-xl border">
+            <div className="mt-2 overflow-hidden rounded-lg border">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={d.image} alt="Önizleme" className="h-48 w-full object-cover" />
+              <img src={d.image} alt="Önizleme" className="h-40 w-full object-cover" />
             </div>
           )}
         </div>
 
-        <label className="mt-4 block text-sm font-medium">İçerik (HTML veya Markdown)</label>
-        <textarea
-          className="input mt-1 h-64"
-          value={d.content}
-          onChange={(e) => setD({ ...d, content: e.target.value })}
-          placeholder="<p>...</p>"
-        />
+        {/* İçerik */}
+        <div>
+          <label htmlFor="content" className="block text-sm font-medium text-stone-700">
+            İçerik *
+          </label>
+          <textarea
+            id="content"
+            className="input mt-1 h-64"
+            placeholder="İçerik (HTML veya Markdown; HTML daha güçlü)."
+            value={d.content || ""}
+            onChange={(e) => setD({ ...d, content: e.target.value })}
+            required
+          />
+        </div>
 
-        <label className="mt-4 block text-sm font-medium">Durum</label>
-        <select
-          className="input mt-1"
-          value={d.status}
-          onChange={(e) => setD({ ...d, status: e.target.value as Status })}
-        >
-          <option value="pub">Yayınla</option>
-          <option value="draft">Taslak</option>
-        </select>
+        {/* Durum */}
+        <div>
+          <label htmlFor="status" className="block text-sm font-medium text-stone-700">
+            Durum
+          </label>
+          <select
+            id="status"
+            className="input mt-1"
+            value={d.status || "draft"}
+            onChange={(e) =>
+              setD({ ...d, status: (e.target.value as "draft" | "pub") || "draft" })
+            }
+          >
+            <option value="draft">Taslak</option>
+            <option value="pub">Yayınla</option>
+          </select>
+        </div>
 
-        {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="mt-6 flex gap-3">
-          <button type="submit" disabled={saving} className="btn btn-primary">
-            {saving ? "Kaydediliyor..." : "Kaydet"}
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={() => router.push("/panel/blog")}>
-            İptal
+        <div className="pt-2">
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? "Kaydediliyor..." : "Kaydet"}
           </button>
         </div>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }
