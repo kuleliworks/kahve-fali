@@ -6,20 +6,6 @@ import { SITE } from "@/lib/seo";
 import Footer from "@/components/Footer";
 import Nav from "@/components/Nav";
 
-/** Doğrulama env'lerini oku */
-const GSC   = process.env.NEXT_PUBLIC_GSC;       // Google Search Console
-const BING  = process.env.NEXT_PUBLIC_BING;      // Bing: msvalidate.01
-const YAN   = process.env.NEXT_PUBLIC_YANDEX;    // yandex-verification
-const PIN   = process.env.NEXT_PUBLIC_PINTEREST; // p:domain_verify
-const FBVER = process.env.NEXT_PUBLIC_FBVERIFY;  // facebook-domain-verification
-
-/** undefined'ları filtrele: sadece tanımlı olan key'leri koy */
-const verificationOther: Record<string, string | number | (string | number)[]> = {};
-if (BING)  verificationOther["msvalidate.01"] = BING;
-if (YAN)   verificationOther["yandex-verification"] = YAN;
-if (PIN)   verificationOther["p:domain_verify"] = PIN;
-if (FBVER) verificationOther["facebook-domain-verification"] = FBVER;
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
@@ -29,10 +15,14 @@ export const metadata: Metadata = {
   description: SITE.description,
   alternates: { canonical: "/" },
 
-  // ✅ Doğrulama meta'ları (boş/undefined gelirse hiç eklenmez)
+  // ✅ Doğrudan sabit doğrulama etiketleri
   verification: {
-    ...(GSC ? { google: GSC } : {}),
-    ...(Object.keys(verificationOther).length ? { other: verificationOther } : {}),
+    google: "Cv3ssHEFB23rmkNb-OhOhLaJxQHjwsalRU-KuCQ_fGM",
+    other: {
+      "msvalidate.01": "6E6995E00FED67845AA6CC88D06020FF", // Bing
+      "yandex-verification": "ee719c548b858ddb",            // Yandex
+      "p:domain_verify": "7a7ccc0055ac199b3220aa5e138d19ba" // Pinterest
+    },
   },
 
   openGraph: {
