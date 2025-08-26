@@ -1,31 +1,46 @@
+// app/api/fal-log/route.ts
 import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
 
 export const runtime = "nodejs";
 
+type Body = {
+  name?: string;
+  age?: number;
+  gender?: string;
+  photosCount?: number;
+  readingId?: string;
+  notes?: string;
+};
+
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const { name = "", age = 0, gender = "", photosCount = 0, readingId = "" } = body || {};
+    const body = (await req.json()) as Body;
+    const id = String(body.readingId || "");
+    if (!id) {
+      return NextResponse.json({ ok: false, error: "id yok" }, { status: 400 });
+    }
 
     const now = Date.now();
-    const createdAt = new Date(now).toISOString();
 
-    try {
-      await redis.hset(`fal:item:${readingId}`, {
-        name: String(name).slice(0, 60),
-        gender: String(gender),
-        age: String(Number(age) || 0),
-        photosCount: String(Number(photosCount) || 0),
-        createdAt,
-      });
-      await redis.zadd("fal:index", { score: now, member: readingId });
-    } catch {
-      // Redis yoksa sessiz geç
-    }
+    // ZSET: yeni -> eski için score = now
+    await redis.zadd("fal:index", { score: now, member: id });
+
+    // HASH
+    await redis.hset(`fal:item:${id}`, {
+      createdAt: String(now),
+      name: String(body.name || ""),
+      age: String(body.age ?? ""),
+      gender: String(body.gender || ""),
+      photosCount: String(body.photosCount ?? 0),
+      notes: String(body.notes || ""),
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Log hatası" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: e?.message || "log yazılamadı" },
+      { status: 500 }
+    );
   }
 }
