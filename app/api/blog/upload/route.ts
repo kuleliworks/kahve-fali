@@ -2,37 +2,56 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 
-// İsteğe bağlı ama hızlı/uyumlu: Edge
 export const runtime = "edge";
 
-// Sadece POST; tarayıcıda direkt GET ile açarsanız 405 görürsünüz — normal.
+// İstersen GET’e bilgi amaçlı JSON dönelim (tarayıcıda 405 yerine açıklama görürsün)
+export async function GET() {
+  return NextResponse.json(
+    { ok: false, error: "Only POST with multipart/form-data is allowed." },
+    { status: 405 }
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const file = form.get("file");
-
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Dosya bulunamadı" }, { status: 400 });
-    }
-
-    // İsteğe bağlı: alt klasör ismi
     const folder = String(form.get("folder") || "blog");
 
-    // Basit isim üretimi
-    const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
-    const key = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+    if (!(file instanceof File)) {
+      return NextResponse.json({ ok: false, error: "file alanı zorunlu." }, { status: 400 });
+    }
 
-    // Vercel Blob'a public upload
-    // (Token otomatik bağlıysa options.token vermek zorunda değilsiniz)
+    // Basit tip ve boyut kontrolleri (isteğe bağlı)
+    const type = file.type || "";
+    if (!type.startsWith("image/")) {
+      return NextResponse.json({ ok: false, error: "Sadece görsel yükleyebilirsiniz." }, { status: 400 });
+    }
+    const maxBytes = 20 * 1024 * 1024; // 20MB
+    if (file.size > maxBytes) {
+      return NextResponse.json({ ok: false, error: "Dosya boyutu 20MB'ı aşamaz." }, { status: 400 });
+    }
+
+    // Uzantı belirle
+    const fromName = (file.name || "").trim();
+    const nameExt =
+      fromName && fromName.includes(".") ? fromName.split(".").pop()!.toLowerCase() : "";
+    const inferExt = type.replace("image/", "") || "jpg";
+    const ext = (nameExt || inferExt).replace(/[^\w]+/g, "") || "jpg";
+
+    const key = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    // Vercel Blob: token varsa kullan, yoksa projeye bağlı kimlikle çalışır
     const { url } = await put(key, file, {
       access: "public",
-      contentType: file.type || "application/octet-stream",
+      contentType: type || "application/octet-stream",
+      token: process.env.BLOB_READ_WRITE_TOKEN || undefined,
     });
 
-    return NextResponse.json({ ok: true, url });
+    return NextResponse.json({ ok: true, url, key });
   } catch (e: any) {
     return NextResponse.json(
-      { error: e?.message || "Yükleme hatası" },
+      { ok: false, error: e?.message || "Yükleme başarısız." },
       { status: 500 }
     );
   }
