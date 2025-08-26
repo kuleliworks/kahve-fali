@@ -1,41 +1,47 @@
+// app/api/readings/route.ts
 import { NextResponse } from "next/server";
-import type { Gender } from "@/lib/fortune";
-import { encodeId } from "@/lib/id";
+import { redis } from "@/lib/redis";
 
-function pickIndex() {
-  return Math.floor(Math.random() * 10); // 0-9
-}
+export const runtime = "nodejs"; // Edge yerine Node: daha toleranslı
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
     if (!body) {
-      return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
+      return NextResponse.json({ error: "Geçersiz JSON" }, { status: 400 });
     }
 
-    const name = String(body.name || "").trim().slice(0, 40);
-    const gender: Gender = body.gender || "belirtmek-istemiyorum";
-    const age = Number(body.age || 0);
+    const name = String(body.name || "").slice(0, 60);
+    const gender = String(body.gender || "");
+    const age = Number(body.age || 0) || 0;
 
-    if (!name) return NextResponse.json({ error: "İsim gerekli." }, { status: 400 });
-    if (!["kadin", "erkek", "belirtmek-istemiyorum"].includes(gender))
-      return NextResponse.json({ error: "Cinsiyet geçersiz." }, { status: 400 });
-    if (!Number.isFinite(age) || age < 12 || age > 99)
-      return NextResponse.json({ error: "Yaş 12-99 arası olmalı." }, { status: 400 });
+    // Artık fotoğrafları base64 taşımıyoruz.
+    // Sadece sayı gönderiyoruz (gövdeyi hafif tut).
+    const photosCount = Number(body.photosCount || 0) || 0;
 
-    // Fotoğrafları şu an saklamıyoruz (MVP). Sadece varlığı yeterli.
-    // const photos: string[] = Array.isArray(body.photos) ? body.photos : [];
+    // ID: URL-safe base64 (sayfada decode ettiğimiz minimal bilgiler)
+    const payload = { n: name, g: gender, a: age, i: photosCount, t: Date.now() };
+    const id = Buffer.from(JSON.stringify(payload)).toString("base64url");
 
-    const id = encodeId({
-      n: name,
-      g: gender,
-      a: age,
-      i: pickIndex(),
-      t: Date.now(),
-    });
+    // Panel için hafif bir kayıt (varsa Redis)
+    try {
+      await redis.hset(`fal:item:${id}`, {
+        name,
+        gender,
+        age: String(age),
+        photosCount: String(photosCount),
+        createdAt: new Date().toISOString(),
+      });
+      await redis.zadd("fal:index", { score: Date.now(), member: id });
+    } catch {
+      // Redis yoksa sessizce geç
+    }
 
-    return NextResponse.json({ id });
-  } catch (e) {
-    return NextResponse.json({ error: "Fal oluşturulurken bir hata oluştu." }, { status: 500 });
+    return NextResponse.json({ ok: true, id });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message || "Fal servisi hatası" },
+      { status: 500 }
+    );
   }
 }
