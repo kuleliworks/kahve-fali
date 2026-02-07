@@ -189,6 +189,68 @@ export default function Page() {
         </div>
       </section>
 
+      <section class="mx-auto mt-20 max-w-6xl px-4">
+  <div class="rounded-3xl border border-stone-200 bg-stone-50 p-8 shadow-sm">
+    
+    <h2 class="text-2xl font-semibold tracking-tight text-stone-900">
+      Sanal Kahve Falı Nedir?
+    </h2>
+
+    <p class="mt-4 text-stone-700 leading-relaxed">
+      <strong>Sanal kahve falı</strong>, geleneksel kahve falı deneyiminin modern teknolojiyle
+      çevrim içi ortama taşınmış halidir. Kahve fincanı ve kapak fotoğraflarını yükleyerek,
+      herhangi bir falcıya gitmeden <strong>online kahve falı</strong> yorumu alabilirsin.
+      Bu yöntem, özellikle hızlı ve pratik bir fal deneyimi arayanlar için tercih edilir.
+    </p>
+
+    <p class="mt-3 text-stone-700 leading-relaxed">
+      Kahvefalin.com’da sunulan sistem, adım adım ilerleyen bir akışla çalışır.
+      Fotoğraflar analiz edilir, yorum süreci başlatılır ve sonuç
+      <strong>kişiye özel bir bağlantı</strong> üzerinden görüntülenir.
+      Böylece klasik “kahve falı bak” deneyimi dijital dünyada yeniden yorumlanır.
+    </p>
+
+    <h3 class="mt-8 text-xl font-semibold tracking-tight text-stone-900">
+      Online Kahve Falı Nasıl Bakılır?
+    </h3>
+
+    <p class="mt-3 text-stone-700 leading-relaxed">
+      Online kahve falı bakmak için öncelikle kahveni içip fincanını kapatman yeterlidir.
+      Ardından fincanın içi ve kapak kısmının net fotoğraflarını çekerek sisteme yüklersin.
+      Girilen yaş ve cinsiyet bilgileriyle birlikte yorum süreci başlar ve ortalama
+      <strong>20–30 saniye</strong> içinde fal sonucu hazırlanır.
+    </p>
+
+    <p class="mt-3 text-stone-700 leading-relaxed">
+      Bu yöntem, zamandan tasarruf sağlarken aynı zamanda
+      <strong>gizliliğe önem veren</strong> bir fal deneyimi sunar.
+      Kullanıcılar, sonuçlarını isterlerse sosyal medya veya mesajlaşma uygulamaları
+      üzerinden paylaşabilir.
+    </p>
+
+    <h3 class="mt-8 text-xl font-semibold tracking-tight text-stone-900">
+      Neden Sanal Kahve Falı Tercih Ediliyor?
+    </h3>
+
+    <ul class="mt-4 list-disc space-y-2 pl-5 text-stone-700">
+      <li>Her yerden ve her zaman online kahve falı bakılabilmesi</li>
+      <li>Fiziksel falcıya gitme zorunluluğunun olmaması</li>
+      <li>Hızlı sonuç ve modern kullanıcı deneyimi</li>
+      <li>Paylaşılabilir ve saklanabilir fal sonuçları</li>
+      <li>Mobil uyumlu, kolay kullanılabilir arayüz</li>
+    </ul>
+
+    <p class="mt-6 text-stone-700 leading-relaxed">
+      Eğer sen de kahve falını geleneksel yöntemlerin dışına taşıyarak
+      dijital dünyada deneyimlemek istiyorsan,
+      <strong>sanal kahve falı</strong> tam sana göre.
+      Kahvefalin.com ile falını hemen gönder, sonucu anında gör.
+    </p>
+
+  </div>
+</section>
+
+
       {/* JSON-LD blokları */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howtoJsonLd) }} />
