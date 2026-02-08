@@ -189,67 +189,7 @@ export default function Page() {
         </div>
       </section>
 
-   const PageBottomCTA = () => {
-  return (
-    <section className="w-full bg-gray-50 border-t border-gray-200 mt-24">
-      <div className="max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-3 gap-12">
-        
-        {/* Sol - Hakkında */}
-        <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            Neden Biz?
-          </h3>
-          <p className="text-gray-600 leading-relaxed">
-            Kullanıcı odaklı, hızlı ve güvenilir çözümler üretiyoruz. 
-            Her projede performans, SEO ve modern tasarım önceliğimizdir.
-            Sayfalarımız sadece güzel görünmez, sonuç üretir.
-          </p>
-        </div>
-
-        {/* Orta - Güven Maddeleri */}
-        <div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            Ne Sunuyoruz?
-          </h3>
-          <ul className="space-y-3 text-gray-600">
-            <li>• Mobil uyumlu ve modern arayüz</li>
-            <li>• SEO dostu yapı</li>
-            <li>• Hız ve performans optimizasyonu</li>
-            <li>• Uzun vadeli, sürdürülebilir çözümler</li>
-          </ul>
-        </div>
-
-        {/* Sağ - CTA */}
-        <div className="flex flex-col justify-between">
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              Harekete Geç
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Projen için doğru altyapıyı arıyorsan, bir adım atman yeterli.
-            </p>
-          </div>
-
-          <a
-            href="/iletisim"
-            className="inline-flex items-center justify-center rounded-xl bg-black px-6 py-3 text-white font-medium hover:bg-gray-800 transition"
-          >
-            Bizimle İletişime Geç
-          </a>
-        </div>
-
-      </div>
-
-      {/* En Alt Mini Footer */}
-      <div className="text-center text-sm text-gray-500 py-6 border-t border-gray-200">
-        © {new Date().getFullYear()} Tüm hakları saklıdır.
-      </div>
-    </section>
-  );
-};
-
-export default PageBottomCTA;
-
+   
 
 
       {/* JSON-LD blokları */}
