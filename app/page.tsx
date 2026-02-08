@@ -4,7 +4,7 @@ import Link from "next/link";
 
 /** SEO: sadece sayfa adı, marka layout şablonundan gelecek */
 export const metadata: Metadata = {
-  title: { absolute: "Online Kahve Falı | Sanal Kahve Falı Bak 2024" },
+  title: { absolute: "Online Kahve Falı | Sanal Kahve Falı Bak" },
   description:
     "Sanal kahve falı ile geleceğini keşfet! Fotoğraf yükle, anında yorum al. Eğlenceli, güvenilir ve hızlı kahve falı deneyimini yaşa. %100 ücretsiz kahve falı servisi.",
   keywords: ["kahve falı", "online kahve falı", "sanal fal", "kahve fincanı falı", "fal baktır", "ücretsiz fal"],
@@ -83,10 +83,10 @@ export default function Page() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "Online Kahve Falı",
-    "url": "https://sitenizinadresi.com",
+    "url": "https://kahvefalin.com",
     "potentialAction": {
       "@type": "SearchAction",
-      "target": "https://sitenizinadresi.com/ara?q={search_term_string}",
+      "target": "https://kahvefalin.com/ara?q={search_term_string}",
       "query-input": "required name=search_term_string"
     }
   };
@@ -96,7 +96,7 @@ export default function Page() {
       {/* HERO (CTA ve arama motoru dostu başlık) */}
       <div className="mx-auto max-w-3xl text-center">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          Online Kahve Falı 2024: Fotoğrafını Yükle, <span className="text-indigo-600">Anında Falını Gör</span>
+          Online Kahve Falı: Fotoğrafını Yükle, <span className="text-indigo-600">Anında Falını Gör</span>
         </h1>
         <p className="mt-4 text-stone-700">
           <strong>Kahve falı baktırmak</strong> artık çok kolay! Sadece kahve fincanı fotoğraflarını yükle, adımlar arasında ilerle ve kişisel{" "}
